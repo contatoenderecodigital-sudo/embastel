@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 const groups: Array<{
@@ -133,6 +133,7 @@ const groups: Array<{
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [needsAttentionCount, setNeedsAttentionCount] = useState(0);
   const [licitacoesNovas, setLicitacoesNovas] = useState(0);
 
@@ -252,7 +253,10 @@ export default function Sidebar() {
         <button
           onClick={async () => {
             await fetch("/api/login", { method: "DELETE" });
-            window.location.href = "/login";
+            router.replace("/login");
+            // Descarta o que já estava em cache no cliente — sem isso os dados
+            // da sessão anterior continuariam na tela até algo recarregar.
+            router.refresh();
           }}
           className="mt-2 block text-[11px] font-medium text-[#8a7778] transition-colors hover:text-white"
         >

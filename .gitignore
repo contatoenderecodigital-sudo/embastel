@@ -32,9 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
 
 # vercel
 .vercel
+
+# dados locais (conversas do whatsapp, índice de licitações, backups, etc.)
+/data
+
+# artefatos de teste no navegador
+/.playwright-mcp
 
 # typescript
 *.tsbuildinfo

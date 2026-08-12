@@ -1,15 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f4f3;
+  --foreground: #201417;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta);
+
+  /* Identidade visual Embastel Embalagens */
+  --color-brand: #7a1f2b;
+  --color-brand-dark: #591620;
+  --color-brand-light: #a4394a;
+  --color-brand-soft: #fbebe9;
+  --color-sidebar: #1c1214;
+  --color-sidebar-hover: #2c1c1f;
+  --color-sidebar-border: #342528;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +30,39 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Gradientes reutilizáveis da identidade visual — cor sólida como fallback
+   pra qualquer lugar que ainda não usa a classe, gradiente é só refinamento. */
+.brand-gradient {
+  background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-dark) 100%);
+}
+
+.brand-gradient-text {
+  background: linear-gradient(135deg, var(--color-brand) 0%, var(--color-brand-light) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.sidebar-gradient {
+  background: radial-gradient(ellipse 120% 60% at 30% 0%, #2a1418 0%, var(--color-sidebar) 45%, #100a0b 100%);
+}
+
+/* Páginas de impressão (pedido/romaneio em A4) reaproveitam o mesmo layout
+   raiz com o menu lateral — na hora de imprimir, esconde tudo que não é o
+   conteúdo da folha e tira o padding/max-width do <main> pra ocupar a
+   página inteira. */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  aside {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
 }

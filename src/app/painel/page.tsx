@@ -8,6 +8,7 @@ import type { ProdutoEstoque } from "@/lib/estoqueDb";
 import type { Pedido } from "@/lib/pedidosDb";
 import type { Romaneio } from "@/lib/romaneiosDb";
 import { PERCENTUAL_COMISSAO } from "@/lib/comissao";
+import { COR_WHATSAPP, IconeWhatsApp, PATH_WHATSAPP } from "@/components/icones";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const compact = new Intl.NumberFormat("pt-BR", {
@@ -130,7 +131,8 @@ export default function Home() {
         needsAttention.length > 0
           ? `${needsAttention.length} precisando de você`
           : "tudo em dia",
-      icon: <path d="M4 16l1.1-3.2A6.5 6.5 0 1 1 8 15.4L4 16z" />,
+      icon: PATH_WHATSAPP,
+      preenchido: true,
     },
     {
       href: "/painel/estoque",
@@ -187,8 +189,9 @@ export default function Home() {
     },
     needsAttention.length > 0 && {
       href: "/painel/whatsapp",
-      iconBg: "bg-gradient-to-br from-red-50 to-red-100 text-red-600",
-      icon: "●",
+      // Verde do WhatsApp: quem bate o olho já sabe de onde vem o aviso.
+      iconBg: COR_WHATSAPP,
+      icon: <IconeWhatsApp className="h-[17px] w-[17px]" />,
       title: `${needsAttention.length} conversa(s) esperando você`,
       desc: "A IA não teve certeza — dê uma olhada quando puder.",
     },
@@ -209,7 +212,7 @@ export default function Home() {
   ].filter(Boolean) as Array<{
     href: string;
     iconBg: string;
-    icon: string;
+    icon: React.ReactNode;
     title: string;
     desc: string;
   }>;
@@ -392,9 +395,9 @@ export default function Home() {
               <span className="brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-brand/20">
                 <svg
                   className="h-[18px] w-[18px]"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
+                  viewBox={mod.preenchido ? "0 0 24 24" : "0 0 20 20"}
+                  fill={mod.preenchido ? "currentColor" : "none"}
+                  stroke={mod.preenchido ? "none" : "currentColor"}
                   strokeWidth="1.6"
                 >
                   {mod.icon}

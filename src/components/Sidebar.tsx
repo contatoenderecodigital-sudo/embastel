@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { PATH_WHATSAPP } from "./icones";
 import { useCallback, useEffect, useState } from "react";
 
 const groups: Array<{
@@ -11,6 +12,7 @@ const groups: Array<{
     href: string;
     label: string;
     icon: React.ReactNode;
+    preenchido?: boolean;
     badgeKey?: "whatsapp" | "licitacoes";
   }>;
 }> = [
@@ -42,7 +44,8 @@ const groups: Array<{
       {
         href: "/painel/whatsapp",
         label: "WhatsApp",
-        icon: <path d="M4 16l1.1-3.2A6.5 6.5 0 1 1 8 15.4L4 16z" />,
+        icon: PATH_WHATSAPP,
+        preenchido: true,
         badgeKey: "whatsapp",
       },
     ],
@@ -224,9 +227,9 @@ export default function Sidebar() {
                     className={`h-[17px] w-[17px] shrink-0 transition-opacity ${
                       active ? "opacity-100" : "opacity-70 group-hover:opacity-100"
                     }`}
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
+                    viewBox={link.preenchido ? "0 0 24 24" : "0 0 20 20"}
+                    fill={link.preenchido ? "currentColor" : "none"}
+                    stroke={link.preenchido ? "none" : "currentColor"}
                     strokeWidth="1.6"
                   >
                     {link.icon}

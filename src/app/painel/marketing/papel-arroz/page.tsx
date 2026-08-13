@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ArtePapelArroz } from "@/lib/papelArrozDb";
 import {
   AREA_UTIL_ALTURA_MM,
   AREA_UTIL_LARGURA_MM,
@@ -36,10 +37,108 @@ export default function PapelArrozPage() {
   // ---------------------------------------------------------------- tags
   const [tagDiametroCm, setTagDiametroCm] = useState(5);
 
+  // ------------------------------------------------------------- galeria
+  const [artes, setArtes] = useState<ArtePapelArroz[]>([]);
+  const [salvando, setSalvando] = useState(false);
+  const [tituloSalvar, setTituloSalvar] = useState("");
+  const [mostrandoSalvar, setMostrandoSalvar] = useState(false);
+  const [avisoGaleria, setAvisoGaleria] = useState<string | null>(null);
+  // Quando a arte veio da galeria, não faz sentido oferecer salvar de novo.
+  const [arteCarregadaId, setArteCarregadaId] = useState<string | null>(null);
+
+  const carregarArtes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/papel-arroz");
+      if (!res.ok) return;
+      setArtes((await res.json()).artes ?? []);
+    } catch {
+      // silencioso: a galeria é um extra, não pode atrapalhar o uso normal
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    carregarArtes();
+  }, [carregarArtes]);
+
+  async function salvarArte() {
+    if (!imagem) return;
+    setSalvando(true);
+    setAvisoGaleria(null);
+    try {
+      const res = await fetch("/api/papel-arroz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          titulo: tituloSalvar || tema || nome || "Arte sem nome",
+          modo,
+          formato,
+          diametroCm,
+          tamanhoQuadrado,
+          tagDiametroCm,
+          tema: tema || null,
+          nome: nome || null,
+          idade: idade || null,
+          descricao: descricao || null,
+          imagemDataUrl: imagem,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Não deu pra salvar");
+      setArteCarregadaId(data.arte.id);
+      setMostrandoSalvar(false);
+      setTituloSalvar("");
+      setAvisoGaleria("Arte guardada — dá pra reimprimir depois sem refazer.");
+      await carregarArtes();
+    } catch (e) {
+      setAvisoGaleria(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function usarArte(arte: ArtePapelArroz) {
+    setAvisoGaleria(null);
+    // Traz a imagem de volta como data URL, porque é o que a folha de
+    // impressão e a prévia consomem.
+    const res = await fetch(`/api/papel-arroz/${arte.id}/imagem`);
+    const blob = await res.blob();
+    const leitor = new FileReader();
+    leitor.onload = () => {
+      setImagem(String(leitor.result));
+      setArteCarregadaId(arte.id);
+    };
+    leitor.readAsDataURL(blob);
+
+    // Restaura a ficha técnica: é isso que faz "reimprimir igualzinho".
+    setModo(arte.modo);
+    setFormato(arte.formato);
+    setDiametroCm(arte.diametroCm);
+    setTamanhoQuadrado(arte.tamanhoQuadrado);
+    setTagDiametroCm(arte.tagDiametroCm);
+    setTema(arte.tema ?? "");
+    setNome(arte.nome ?? "");
+    setIdade(arte.idade ?? "");
+    setDescricao(arte.descricao ?? "");
+
+    void fetch(`/api/papel-arroz/${arte.id}`, { method: "PATCH" });
+  }
+
+  async function excluirArte(id: string) {
+    await fetch(`/api/papel-arroz/${id}`, { method: "DELETE" });
+    if (arteCarregadaId === id) setArteCarregadaId(null);
+    await carregarArtes();
+  }
+
   function carregarImagem(arquivo: File | undefined) {
     if (!arquivo) return;
     const leitor = new FileReader();
-    leitor.onload = () => setImagem(String(leitor.result));
+    leitor.onload = () => {
+      setImagem(String(leitor.result));
+      // Arte nova: volta a oferecer salvar.
+      setArteCarregadaId(null);
+      setAvisoGaleria(null);
+    };
     leitor.readAsDataURL(arquivo);
   }
 
@@ -364,6 +463,57 @@ export default function PapelArrozPage() {
               {imagem ? "Imprimir folha A4" : "Escolha a arte primeiro"}
             </button>
 
+            {/* salvar na galeria */}
+            {imagem && !arteCarregadaId && (
+              <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
+                {mostrandoSalvar ? (
+                  <div className="space-y-2.5">
+                    <label className="block text-[12.5px] font-medium text-neutral-700">
+                      Com que nome guardar essa arte?
+                    </label>
+                    <input
+                      value={tituloSalvar}
+                      onChange={(e) => setTituloSalvar(e.target.value)}
+                      autoFocus
+                      placeholder={tema || nome || "Ex: Homem-Aranha 5 anos"}
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={salvarArte}
+                        disabled={salvando}
+                        className="rounded-lg bg-brand px-4 py-2 text-[13px] font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
+                      >
+                        {salvando ? "Guardando..." : "Guardar"}
+                      </button>
+                      <button
+                        onClick={() => setMostrandoSalvar(false)}
+                        className="px-2 text-[13px] text-neutral-500 hover:text-neutral-800"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setTituloSalvar(tema || nome || "");
+                      setMostrandoSalvar(true);
+                    }}
+                    className="text-[13px] font-semibold text-brand hover:underline"
+                  >
+                    + Guardar essa arte pra reimprimir depois
+                  </button>
+                )}
+              </div>
+            )}
+
+            {avisoGaleria && (
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-[12.5px] text-emerald-800">
+                {avisoGaleria}
+              </p>
+            )}
+
             <p className="text-[11.5px] leading-relaxed text-neutral-400">
               Na janela de impressão: papel <b>A4</b>, margens <b>nenhuma</b> e
               escala <b>100%</b> (nunca &quot;ajustar à página&quot; — é o que
@@ -398,6 +548,70 @@ export default function PapelArrozPage() {
             </div>
           </div>
         </div>
+
+        {/* ------------------------------------------------------- galeria */}
+        {artes.length > 0 && (
+          <div className="rounded-2xl border border-neutral-200/70 bg-white p-5 shadow-sm">
+            <h2 className="text-[13px] font-bold text-neutral-900">
+              Artes guardadas ({artes.length})
+            </h2>
+            <p className="mt-0.5 text-[12px] text-neutral-500">
+              Clique numa pra carregar a arte e as medidas de novo — cliente que
+              volta pedindo o mesmo tema, é só imprimir.
+            </p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {artes.map((arte) => (
+                <div
+                  key={arte.id}
+                  className={`group overflow-hidden rounded-xl border transition-all ${
+                    arteCarregadaId === arte.id
+                      ? "border-brand ring-2 ring-brand/20"
+                      : "border-neutral-200 hover:border-brand/40 hover:shadow-md"
+                  }`}
+                >
+                  <button
+                    onClick={() => usarArte(arte)}
+                    className="block w-full text-left"
+                  >
+                    <div className="aspect-square bg-neutral-50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/papel-arroz/${arte.id}/imagem`}
+                        alt={arte.titulo}
+                        className={`h-full w-full object-cover ${
+                          arte.formato === "redondo" || arte.modo === "tags"
+                            ? "rounded-full p-1.5"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                    <div className="px-2.5 py-2">
+                      <p className="truncate text-[12px] font-semibold text-neutral-900">
+                        {arte.titulo}
+                      </p>
+                      <p className="mt-0.5 text-[10.5px] text-neutral-500">
+                        {arte.modo === "tags"
+                          ? `Tags de ${arte.tagDiametroCm} cm`
+                          : arte.formato === "redondo"
+                            ? `Redondo ${arte.diametroCm} cm`
+                            : arte.tamanhoQuadrado === "20x25"
+                              ? "Quadrado 20×25"
+                              : "Folha inteira"}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => excluirArte(arte.id)}
+                    className="w-full border-t border-neutral-100 py-1.5 text-[10.5px] text-neutral-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ====================== FOLHA REAL (só aparece na impressão) ====== */}

@@ -204,7 +204,7 @@ export default function PapelArrozPage() {
                 : "text-neutral-600 hover:bg-neutral-100"
             }`}
           >
-            Topo de bolo
+            Papel arroz
           </button>
           <button
             onClick={() => setModo("tags")}
@@ -214,7 +214,7 @@ export default function PapelArrozPage() {
                 : "text-neutral-600 hover:bg-neutral-100"
             }`}
           >
-            Tags redondas
+            Tags
           </button>
         </div>
 
@@ -353,7 +353,7 @@ export default function PapelArrozPage() {
                   {formato === "redondo" ? (
                     <div className="mt-4">
                       <label className="mb-1.5 block text-[12.5px] font-medium text-neutral-700">
-                        Diâmetro do bolo
+                        Diâmetro
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {DIAMETROS_CM.map((cm) => (

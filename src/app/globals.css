@@ -3,6 +3,12 @@
 :root {
   --background: #f7f4f3;
   --foreground: #201417;
+
+  /* O painel é claro, ponto. Sem isso, quem usa o computador em modo escuro
+     recebe campos de formulário, listas suspensas e seletores de data
+     pintados de preto pelo próprio navegador — em cima dos cartões brancos
+     do painel, que continuam brancos. */
+  color-scheme: light;
 }
 
 @theme inline {
@@ -20,16 +26,37 @@
   --color-sidebar-border: #342528;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* NÃO existe bloco de modo escuro aqui, e é de propósito.
+ *
+ * Existia um `@media (prefers-color-scheme: dark)` que trocava --foreground
+ * para quase-branco. Mas o painel inteiro é desenhado em claro: os cartões
+ * são bg-white fixo, os títulos são text-neutral-900 fixo. Só o que herdava
+ * a cor mudava — e o que mais herda é justamente o texto digitado nos
+ * campos. Resultado, pra quem usa o computador em modo escuro: você digitava
+ * o nome do cliente e ele saía cinza-claro em cima de branco, ilegível, em
+ * todo formulário do painel.
+ *
+ * Fazer modo escuro de verdade seria revisar cada tela; forçar claro resolve
+ * hoje e não deixa meio-termo quebrado. */
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Campos de formulário não herdam cor de texto sozinhos em todo navegador —
+   deixar explícito é o que garante que o que a pessoa digita apareça preto,
+   independente da configuração do sistema dela. */
+input,
+textarea,
+select {
+  color: var(--foreground);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9a8f91;
+  opacity: 1;
 }
 
 /* Gradientes reutilizáveis da identidade visual — cor sólida como fallback

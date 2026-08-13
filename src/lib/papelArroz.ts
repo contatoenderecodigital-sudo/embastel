@@ -17,7 +17,7 @@ export const AREA_UTIL_ALTURA_MM = A4_ALTURA_MM - MARGEM_MM * 2; // 287
 
 export type Formato = "redondo" | "quadrado";
 
-// Diâmetros comuns de topo de bolo, em cm. São as medidas que os aros de
+// Diâmetros comuns de papel de arroz, em cm. São as medidas que os aros de
 // confeitaria usam.
 export const DIAMETROS_CM = [10, 12, 15, 18, 20, 21, 23, 25, 28] as const;
 
@@ -103,7 +103,7 @@ export function montarPromptPapelArroz(input: {
   const partes: string[] = [];
 
   partes.push(
-    `Arte para papel de arroz comestível de topo de bolo, tema "${input.tema.trim()}".`
+    `Arte para papel de arroz comestível, tema "${input.tema.trim()}".`
   );
 
   if (input.formato === "redondo") {

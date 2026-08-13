@@ -179,7 +179,7 @@ export default function Notificacoes() {
   }
 
   return (
-    <div className="fixed right-6 top-5 z-50">
+    <div className="nao-imprimir fixed right-6 top-5 z-50">
       <button
         onClick={() => setAberto((v) => !v)}
         aria-label={`Notificações${naoLidas.length ? ` (${naoLidas.length} não lidas)` : ""}`}

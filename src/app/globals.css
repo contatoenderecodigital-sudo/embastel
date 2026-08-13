@@ -61,6 +61,11 @@ body {
   aside {
     display: none !important;
   }
+  /* O sino de notificações fica fixo na tela; sem isso ele apareceria
+     carimbado no canto de todo romaneio e todo papel de arroz impresso. */
+  .nao-imprimir {
+    display: none !important;
+  }
   main {
     padding: 0 !important;
     max-width: none !important;

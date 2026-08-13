@@ -8,6 +8,11 @@ import { ItensEditor, itemFormVazio, totalItens, type ItemForm } from "@/compone
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
+function hojeISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function PedidosPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -22,6 +27,11 @@ export default function PedidosPage() {
   const [itensForm, setItensForm] = useState<ItemForm[]>([itemFormVazio()]);
   const [observacao, setObservacao] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [dataRomaneio, setDataRomaneio] = useState(hojeISO());
+  const [confirmandoRomaneio, setConfirmandoRomaneio] = useState(false);
+  const [gerando, setGerando] = useState(false);
+  const [resultado, setResultado] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -128,13 +138,46 @@ export default function PedidosPage() {
     }
   }
 
+  // "Em aberto" é o que ainda não entrou em nenhum romaneio. Ao gerar o
+  // romaneio, o pedido ganha um romaneioId e sai daqui — sem ser apagado.
   const emAberto = useMemo(
     () =>
       pedidos
-        .filter((p) => p.status === "pendente")
+        .filter((p) => p.status === "pendente" && !p.romaneioId)
         .sort((a, b) => (b.dataPedido ?? "").localeCompare(a.dataPedido ?? "")),
     [pedidos]
   );
+
+  const totalEmAberto = useMemo(
+    () => emAberto.reduce((s, p) => s + p.valorTotal, 0),
+    [emAberto]
+  );
+
+  async function gerarRomaneio() {
+    setGerando(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/romaneios/gerar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: dataRomaneio }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Falha ao gerar o romaneio");
+      setResultado(
+        `${data.pedidosIncluidos} pedido(s) viraram o romaneio de ${dataRomaneio
+          .split("-")
+          .reverse()
+          .join("/")} — ${currency.format(data.valorTotal)}.`
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao gerar o romaneio");
+    } finally {
+      setGerando(false);
+      setConfirmandoRomaneio(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -228,14 +271,80 @@ export default function PedidosPage() {
 
       {loading && <p className="text-sm text-neutral-500">Carregando...</p>}
 
+      {resultado && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <span>{resultado}</span>
+          <Link
+            href="/painel/romaneio"
+            className="shrink-0 font-semibold underline hover:no-underline"
+          >
+            Abrir o romaneio →
+          </Link>
+        </div>
+      )}
+
+      {/* --------------------------------------------- fechar a carga do dia */}
+      {emAberto.length > 0 && (
+        <div className="sidebar-gradient rounded-2xl p-5 text-white shadow-lg shadow-black/10">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-wider text-[#a4898b]">
+                Pronto pra virar romaneio
+              </p>
+              <p className="mt-1 text-[26px] font-extrabold leading-none">
+                {currency.format(totalEmAberto)}
+              </p>
+              <p className="mt-1.5 text-[12px] text-[#cbb9ba]">
+                {emAberto.length} pedido(s) acumulado(s) esperando a carga sair.
+              </p>
+            </div>
+
+            {confirmandoRomaneio ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-[12px] text-[#cbb9ba]">Data da carga</label>
+                <input
+                  type="date"
+                  value={dataRomaneio}
+                  onChange={(e) => setDataRomaneio(e.target.value)}
+                  className="rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2 text-[13px] text-white outline-none focus:border-white/30"
+                />
+                <button
+                  onClick={gerarRomaneio}
+                  disabled={gerando}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  {gerando ? "Gerando..." : "Confirmar"}
+                </button>
+                <button
+                  onClick={() => setConfirmandoRomaneio(false)}
+                  className="px-2 text-[13px] text-[#cbb9ba] hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setResultado(null);
+                  setConfirmandoRomaneio(true);
+                }}
+                className="rounded-xl bg-white px-5 py-2.5 text-[13.5px] font-bold text-[#1c1214] shadow-lg shadow-black/20 transition-transform hover:-translate-y-px"
+              >
+                Gerar romaneio com esses pedidos
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         <h2 className="text-[14px] font-semibold text-neutral-900">
           Pedidos em aberto {emAberto.length > 0 && `(${emAberto.length})`}
         </h2>
         {!loading && emAberto.length === 0 && (
           <p className="text-sm text-neutral-500">
-            Nenhum pedido em aberto — os que forem marcados como entregues no Romaneio somem
-            dessa lista.
+            Nenhum pedido em aberto. Os pedidos ficam acumulando aqui até você gerar
+            o romaneio — aí eles viram a carga do dia e saem desta lista.
           </p>
         )}
         {emAberto.map((pedido) => (

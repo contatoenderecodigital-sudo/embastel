@@ -124,6 +124,16 @@ const groups: Array<{
         ),
       },
       {
+        href: "/painel/marketing/papel-arroz",
+        label: "Papel de arroz",
+        icon: (
+          <>
+            <circle cx="10" cy="10" r="7" />
+            <path d="M10 3v14M3 10h14" strokeDasharray="1.5 2.5" />
+          </>
+        ),
+      },
+      {
         href: "/painel/marketing/promocoes",
         label: "Promoções",
         icon: (

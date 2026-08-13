@@ -7,7 +7,6 @@ import type { Conversation } from "@/lib/whatsappDb";
 import type { ProdutoEstoque } from "@/lib/estoqueDb";
 import type { Pedido } from "@/lib/pedidosDb";
 import type { Romaneio } from "@/lib/romaneiosDb";
-import { PERCENTUAL_COMISSAO } from "@/lib/comissao";
 import { COR_WHATSAPP, IconeWhatsApp, PATH_WHATSAPP } from "@/components/icones";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -65,10 +64,11 @@ export default function Home() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [romaneios, setRomaneios] = useState<Romaneio[]>([]);
   const [licitacoes, setLicitacoes] = useState<ResumoLicitacoes | null>(null);
+  const [comissoes, setComissoes] = useState<{ aPagar: number } | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [tasksRes, convRes, licRes, estoqueRes, pedidosRes, romaneiosRes] =
+      const [tasksRes, convRes, licRes, estoqueRes, pedidosRes, romaneiosRes, comRes] =
         await Promise.all([
           fetch("/api/tarefas"),
           fetch("/api/whatsapp/conversations"),
@@ -76,6 +76,7 @@ export default function Home() {
           fetch("/api/estoque"),
           fetch("/api/pedidos"),
           fetch("/api/romaneios"),
+          fetch("/api/comissoes"),
         ]);
       setTasks((await tasksRes.json()).tasks ?? []);
       setConversations((await convRes.json()).conversations ?? []);
@@ -83,6 +84,7 @@ export default function Home() {
       setProdutos((await estoqueRes.json()).produtos ?? []);
       setPedidos((await pedidosRes.json()).pedidos ?? []);
       setRomaneios((await romaneiosRes.json()).romaneios ?? []);
+      setComissoes(await comRes.json());
     } catch {
       // silencioso: próxima atualização tenta de novo
     }
@@ -109,11 +111,7 @@ export default function Home() {
   const totalRomaneioHoje = romaneioHoje?.itens.reduce((s, i) => s + i.valor, 0) ?? 0;
   const entreguesHoje = romaneioHoje?.itens.filter((i) => i.entregue).length ?? 0;
 
-  const mesAtual = hojeISO().slice(0, 7);
-  const totalVendidoMes = romaneios
-    .filter((r) => r.data.slice(0, 7) === mesAtual)
-    .reduce((s, r) => s + r.itens.reduce((s2, i) => s2 + i.valor, 0), 0);
-  const comissaoMes = totalVendidoMes * PERCENTUAL_COMISSAO;
+  const comissaoAPagar = comissoes?.aPagar ?? 0;
 
   const modules = [
     {
@@ -166,8 +164,11 @@ export default function Home() {
     {
       href: "/painel/comissoes",
       title: "Comissões",
-      description: "5% da Ketlyn sobre o vendido no mês, calculado sozinho.",
-      stat: currency.format(comissaoMes),
+      description:
+        comissaoAPagar > 0
+          ? "Valor acumulado que ainda falta acertar com a Ketlyn."
+          : "5% da Ketlyn sobre o vendido — tudo quitado por enquanto.",
+      stat: currency.format(comissaoAPagar),
       icon: <path d="M10 2v16M14 5.5c0-1.4-1.8-2.5-4-2.5s-4 1.1-4 2.5S7.8 8 10 8s4 1.1 4 2.5-1.8 2.5-4 2.5-4-1.1-4-2.5" />,
     },
   ];

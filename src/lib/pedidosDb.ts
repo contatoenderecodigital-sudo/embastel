@@ -27,6 +27,10 @@ export type Pedido = {
   observacao: string | null;
   dataPedido: string;
   dataEntrega: string | null;
+  // Preenchido quando o pedido entra num romaneio. É o que faz ele sair da
+  // lista de "em aberto": o pedido não some nem é apagado, ele passa a
+  // pertencer àquela carga. Null = ainda esperando entrar num romaneio.
+  romaneioId: string | null;
 };
 
 type PedidosData = {
@@ -73,6 +77,7 @@ export async function addPedido(input: {
       observacao: input.observacao ?? null,
       dataPedido: new Date().toISOString(),
       dataEntrega: null,
+      romaneioId: null,
     };
     data.pedidos.push(pedido);
     return pedido;
@@ -84,7 +89,13 @@ export async function updatePedido(
   patch: Partial<
     Pick<
       Pedido,
-      "itens" | "formaPagamento" | "status" | "pago" | "observacao" | "dataEntrega"
+      | "itens"
+      | "formaPagamento"
+      | "status"
+      | "pago"
+      | "observacao"
+      | "dataEntrega"
+      | "romaneioId"
     >
   >
 ): Promise<Pedido | null> {

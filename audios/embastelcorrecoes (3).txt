@@ -1,0 +1,5 @@
+E eu quero que você faça uma parte do painel pra gerar imagens de papel-arroz ali. Primeiro me perguntando o tema ou pedindo a imagem pra pôr, depois colocando o nome e idade da pessoa. Tipo, ter um campo assim, mas ser opcional, porque tem gente que não quer colocar.
+
+E talvez uma descrição breve do que é pra ser, mas também opcional. E aí, que gere? A gente imprime no formato da folha A4. E aí eu também preciso que você me pergunte se é quadrado ou redondo o bolo.
+
+E quantos centímetros de diâmetro eu vou querer, se for redondo. Se for quadrado, daí você pode fazer o tamanho da folha toda, ou 20x25 se eu pedir. Daí você pede se é 20x25 ou se é o tamanho da folha toda.

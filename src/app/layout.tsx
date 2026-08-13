@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import Moldura from "@/components/Moldura";
 import "./globals.css";
@@ -14,6 +14,17 @@ export const metadata: Metadata = {
   description: "Painel interno da Embastel Embalagens",
   // Painel interno não deve aparecer em busca nenhuma.
   robots: { index: false, follow: false },
+};
+
+// Declara que a página é clara, na marra.
+//
+// Não é redundante com o `color-scheme: light` do CSS: o Chrome e o Edge têm
+// um "forçar modo escuro" (em chrome://flags e nas configurações do Edge) que
+// escurece páginas por conta própria, invertendo cores e deixando tudo
+// lavado. Esta meta tag é o sinal documentado de "esta página já se vira, não
+// mexa" — sem ela, o navegador reescreve as cores do painel por cima.
+export const viewport: Viewport = {
+  colorScheme: "light",
 };
 
 export default function RootLayout({

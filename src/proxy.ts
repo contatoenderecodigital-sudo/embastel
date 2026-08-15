@@ -17,16 +17,42 @@ const LIVRES = [
   "/api/cron",
 ];
 
+/**
+ * Impede o navegador de guardar a página do painel.
+ *
+ * O nome dos arquivos de estilo muda a cada publicação. Se o navegador
+ * guardar o HTML de uma versão, na publicação seguinte ele fica pedindo
+ * arquivos que não existem mais e o painel abre completamente sem
+ * formatação — sem a pessoa ter o que fazer além de descobrir sozinha o
+ * atalho de limpar cache. Aconteceu em 13/08/2026 com o dono da loja.
+ *
+ * Precisa ser feito aqui, e não no next.config: para páginas
+ * pré-renderizadas o Next define o Cache-Control dele e ignora o do config
+ * (ver node_modules/next/dist/docs/.../01-next-config-js/headers.md).
+ */
+function semCache(resposta: NextResponse): NextResponse {
+  resposta.headers.set("Cache-Control", "no-store, must-revalidate");
+  return resposta;
+}
+
 export async function proxy(request: NextRequest) {
-  if (!loginObrigatorio()) return NextResponse.next();
+  const ehPainel =
+    request.nextUrl.pathname === "/login" ||
+    request.nextUrl.pathname.startsWith("/painel");
+
+  if (!loginObrigatorio()) {
+    return ehPainel ? semCache(NextResponse.next()) : NextResponse.next();
+  }
 
   const { pathname } = request.nextUrl;
   if (LIVRES.some((rota) => pathname === rota || pathname.startsWith(`${rota}/`))) {
-    return NextResponse.next();
+    return ehPainel ? semCache(NextResponse.next()) : NextResponse.next();
   }
 
   const token = request.cookies.get(COOKIE_SESSAO)?.value;
-  if (await tokenValido(token)) return NextResponse.next();
+  if (await tokenValido(token)) {
+    return ehPainel ? semCache(NextResponse.next()) : NextResponse.next();
+  }
 
   // Chamada de API responde 401 em vez de redirecionar — a tela trata melhor
   // um erro do que receber o HTML da página de login no lugar de JSON.

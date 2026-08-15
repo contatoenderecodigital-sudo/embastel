@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Permite compilar numa pasta separada da que está no ar.
+  //
+  // Sem isso, o `npm run build` reescrevia o .next enquanto o servidor servia
+  // dali: por uns 15 segundos a página vinha pedindo arquivos de estilo que
+  // ainda não tinham sido gerados, e o painel aparecia sem formatação nenhuma
+  // pra quem estivesse usando. O script scripts/deploy-vps.sh compila em
+  // .next-novo e só então troca as pastas — a interrupção passa a ser o
+  // reinício do processo, uns 2 segundos.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   async rewrites() {
     return [
       // A raiz do domínio é o site público da loja — um HTML estático que vive

@@ -46,3 +46,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pastas temporarias do deploy (scripts/deploy-vps.sh)
+/.next-novo
+/.next-antiga

@@ -30,7 +30,22 @@ const nextConfig: NextConfig = {
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "same-origin" },
+          // Página do painel nunca fica guardada no navegador.
+          //
+          // O nome dos arquivos de estilo muda a cada publicação. Se o
+          // navegador guardar o HTML de uma versão e a publicação seguinte
+          // trocar esses nomes, ele fica pedindo arquivos que não existem
+          // mais — e o painel abre completamente sem formatação, sem nada
+          // que a pessoa possa fazer além de descobrir sozinha o atalho de
+          // limpar cache. Aconteceu em 13/08/2026. O HTML é pequeno; buscá-lo
+          // sempre custa quase nada perto disso.
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
         ],
+      },
+      {
+        // Mesma coisa pra tela de login.
+        source: "/login",
+        headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
       },
     ];
   },

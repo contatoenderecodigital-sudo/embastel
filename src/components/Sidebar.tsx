@@ -62,6 +62,16 @@ const groups: Array<{
         badgeKey: "licitacoes",
       },
       {
+        href: "/painel/conferencia",
+        label: "Conferência",
+        icon: (
+          <>
+            <path d="M6 3h8a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+            <path d="M8 7.5l1.3 1.3L12 6.2M8 12.5l1.3 1.3L12 11.2" />
+          </>
+        ),
+      },
+      {
         href: "/painel/estoque",
         label: "Estoque",
         icon: (

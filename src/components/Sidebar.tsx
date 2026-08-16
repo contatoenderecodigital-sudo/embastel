@@ -13,7 +13,7 @@ const groups: Array<{
     label: string;
     icon: React.ReactNode;
     preenchido?: boolean;
-    badgeKey?: "whatsapp" | "licitacoes";
+    badgeKey?: "whatsapp" | "licitacoes" | "documentos";
   }>;
 }> = [
   {
@@ -60,6 +60,17 @@ const groups: Array<{
           <path d="M4 8h12M4 8l-1.5 4a2 2 0 0 0 4 0L5 8m10 0l1.5 4a2 2 0 0 1-4 0L14 8M10 4v14M7 18h6" />
         ),
         badgeKey: "licitacoes",
+      },
+      {
+        href: "/painel/documentos",
+        label: "Documentos",
+        icon: (
+          <>
+            <path d="M5 2.5h6l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1z" />
+            <path d="M11 2.5v4h4M7 11h6M7 14h4" />
+          </>
+        ),
+        badgeKey: "documentos",
       },
       {
         href: "/painel/conferencia",
@@ -159,12 +170,14 @@ export default function Sidebar() {
   const router = useRouter();
   const [needsAttentionCount, setNeedsAttentionCount] = useState(0);
   const [licitacoesNovas, setLicitacoesNovas] = useState(0);
+  const [documentosProblema, setDocumentosProblema] = useState(0);
 
   const loadBadge = useCallback(async () => {
     try {
-      const [convRes, licRes] = await Promise.all([
+      const [convRes, licRes, docRes] = await Promise.all([
         fetch("/api/whatsapp/conversations"),
         fetch("/api/licitacoes/resumo"),
+        fetch("/api/documentos"),
       ]);
 
       const convData = await convRes.json();
@@ -177,6 +190,14 @@ export default function Sidebar() {
 
       const licData = await licRes.json();
       setLicitacoesNovas(licData.novas24h ?? 0);
+
+      // O contador do menu junta o que impede de participar hoje (vencido ou
+      // sem arquivo) com o que está para vencer — os três exigem ação.
+      const docData = await docRes.json();
+      const r = docData.resumo ?? {};
+      setDocumentosProblema(
+        (r.vencidos ?? 0) + (r.semArquivo ?? 0) + (r.venceEmBreve ?? 0)
+      );
     } catch {
       // silencioso: próxima atualização tenta de novo
     }
@@ -226,7 +247,9 @@ export default function Sidebar() {
                   ? needsAttentionCount
                   : link.badgeKey === "licitacoes" && licitacoesNovas > 0
                     ? licitacoesNovas
-                    : null;
+                    : link.badgeKey === "documentos" && documentosProblema > 0
+                      ? documentosProblema
+                      : null;
               // Licitação nova é oportunidade, não problema — verde. Conversa
               // parada esperando resposta continua sendo vermelho.
               const badgeCor =

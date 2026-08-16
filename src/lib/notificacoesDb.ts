@@ -6,6 +6,7 @@ export type TipoNotificacao =
   | "licitacao_prazo"
   | "whatsapp"
   | "estoque"
+  | "documento"
   | "sistema";
 
 export type Notificacao = {

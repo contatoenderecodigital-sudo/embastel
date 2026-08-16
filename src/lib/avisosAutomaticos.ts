@@ -2,6 +2,12 @@ import { criarNotificacoes } from "./notificacoesDb";
 import { listTracked } from "./licitacoesTrackingDb";
 import { listConversations } from "./whatsappDb";
 import { listProdutos } from "./estoqueDb";
+import {
+  MARCOS_AVISO,
+  diasAteVencer,
+  hojeISO,
+  listDocumentos,
+} from "./documentosDb";
 
 // Verificador de avisos. Roda em segundo plano enquanto o servidor está no ar
 // e transforma em notificação as coisas que antes só apareciam se alguém
@@ -75,6 +81,51 @@ export async function verificarAvisos(): Promise<void> {
       href: "/painel/estoque",
       chave: `estoque:${produto.id}:${produto.atualizadoEm}`,
     });
+  }
+
+  // ----- certidões de habilitação chegando no vencimento
+  //
+  // É o aviso que mais protege dinheiro: perder na habilitação por uma CND
+  // vencida significa perder uma licitação que já tinha sido ganha no preço.
+  // Quatro marcos porque os prazos de renovação são muito diferentes entre si
+  // — balanço depende do contador (60 dias), CRF do FGTS sai na hora (7).
+  const hoje = hojeISO();
+  const documentos = await listDocumentos();
+  for (const doc of documentos) {
+    if (doc.naoVence || !doc.dataValidade) continue;
+    const dias = diasAteVencer(doc.dataValidade, hoje);
+
+    if (dias < 0) {
+      // Vencido avisa uma vez por dia, e não uma vez só: documento vencido
+      // impede de participar, então não pode virar aviso lido e esquecido.
+      pendentes.push({
+        tipo: "documento",
+        titulo: `VENCIDO: ${doc.nome}`,
+        texto: `Venceu há ${Math.abs(dias)} dia(s). Sem ele a Embastel é inabilitada.`,
+        href: "/painel/documentos",
+        chave: `documento_vencido:${doc.id}:${hoje}`,
+      });
+      continue;
+    }
+
+    // Só o marco mais próximo dispara — sem isso, cadastrar um documento que
+    // vence em 5 dias criaria os quatro avisos de uma vez.
+    for (const marco of [...MARCOS_AVISO].sort((a, b) => a - b)) {
+      if (dias > marco) continue;
+      pendentes.push({
+        tipo: "documento",
+        titulo:
+          dias === 0
+            ? `Vence hoje: ${doc.nome}`
+            : `Vence em ${dias} dia(s): ${doc.nome}`,
+        texto: doc.orgaoEmissor
+          ? `Emitido por ${doc.orgaoEmissor}. Renove antes da próxima sessão.`
+          : "Renove antes da próxima sessão de licitação.",
+        href: "/painel/documentos",
+        chave: `documento_prazo:${doc.id}:${doc.dataValidade}:${marco}`,
+      });
+      break;
+    }
   }
 
   await criarNotificacoes(pendentes);

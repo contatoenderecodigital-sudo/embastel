@@ -5,7 +5,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type Notificacao = {
   id: string;
-  tipo: "licitacao_nova" | "licitacao_prazo" | "whatsapp" | "estoque" | "sistema";
+  tipo:
+    | "licitacao_nova"
+    | "licitacao_prazo"
+    | "whatsapp"
+    | "estoque"
+    | "documento"
+    | "sistema";
   titulo: string;
   texto: string;
   href: string;
@@ -26,6 +32,7 @@ const ICONE: Record<Notificacao["tipo"], React.ReactNode> = {
   licitacao_prazo: "⏱",
   whatsapp: LOGO_WHATSAPP,
   estoque: "!",
+  documento: "📄",
   sistema: "i",
 };
 
@@ -36,6 +43,7 @@ const COR: Record<Notificacao["tipo"], string> = {
   // não lida, não a cor do ícone.
   whatsapp: "bg-[#25D366]/15 text-[#128C7E]",
   estoque: "bg-rose-100 text-rose-600",
+  documento: "bg-orange-100 text-orange-700",
   sistema: "bg-neutral-100 text-neutral-600",
 };
 

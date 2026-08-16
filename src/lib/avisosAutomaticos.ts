@@ -8,6 +8,12 @@ import {
   hojeISO,
   listDocumentos,
 } from "./documentosDb";
+import {
+  LIMITE_SALDO_BAIXO,
+  MARCOS_VIGENCIA,
+  calcular,
+  listContratosCru,
+} from "./contratosDb";
 
 // Verificador de avisos. Roda em segundo plano enquanto o servidor está no ar
 // e transforma em notificação as coisas que antes só apareciam se alguém
@@ -25,6 +31,13 @@ function diasAte(dataISO: string | null): number | null {
   const restante = alvo - Date.now();
   if (restante < 0) return -1;
   return Math.ceil(restante / 86400000);
+}
+
+/** "2026-08-01" -> "01/08/2026". O aviso é lido por gente, não por banco. */
+function paraBrasileiro(iso: string | null): string {
+  if (!iso) return "—";
+  const [ano, mes, dia] = iso.slice(0, 10).split("-");
+  return `${dia}/${mes}/${ano}`;
 }
 
 export async function verificarAvisos(): Promise<void> {
@@ -125,6 +138,70 @@ export async function verificarAvisos(): Promise<void> {
         chave: `documento_prazo:${doc.id}:${doc.dataValidade}:${marco}`,
       });
       break;
+    }
+  }
+
+  // ----- contratos e atas: vigência, saldo e prefeitura devendo
+  const contratos = await listContratosCru();
+  for (const cru of contratos) {
+    if (cru.encerrado) continue;
+    const c = calcular(cru, hoje);
+    const rotulo = `${c.tipo === "ata" ? "Ata" : "Contrato"} ${c.numero} — ${c.orgao}`;
+
+    // Fim de vigência. Numa ata, vigência acabando com saldo sobrando é
+    // dinheiro que simplesmente evapora: o saldo não fornecido não vira nada.
+    if (c.diasAteFimVigencia != null) {
+      if (c.diasAteFimVigencia < 0) {
+        if (c.saldoValor > 0) {
+          pendentes.push({
+            tipo: "contrato",
+            titulo: `VENCEU com saldo: ${rotulo}`,
+            texto: `Ficaram ${c.saldoValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} sem fornecer. Veja se cabe aditivo ou prorrogação.`,
+            href: "/painel/contratos",
+            chave: `contrato_vencido:${c.id}:${hoje}`,
+          });
+        }
+      } else {
+        for (const marco of [...MARCOS_VIGENCIA].sort((a, b) => a - b)) {
+          if (c.diasAteFimVigencia > marco) continue;
+          pendentes.push({
+            tipo: "contrato",
+            titulo: `Vigência acaba em ${c.diasAteFimVigencia} dia(s): ${rotulo}`,
+            texto:
+              c.saldoValor > 0
+                ? `Ainda há ${c.saldoValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de saldo pra fornecer.`
+                : "Saldo esgotado. Avalie encerrar.",
+            href: "/painel/contratos",
+            chave: `contrato_vigencia:${c.id}:${c.vigenciaFim}:${marco}`,
+          });
+          break;
+        }
+      }
+    }
+
+    // Saldo quase no fim. Vale como oportunidade: é hora de correr atrás da
+    // próxima licitação do mesmo órgão, antes de ficar sem fornecimento.
+    if (c.valorTotal > 0 && c.percentualUsado >= LIMITE_SALDO_BAIXO && c.saldoValor > 0) {
+      pendentes.push({
+        tipo: "contrato",
+        titulo: `Saldo acabando: ${rotulo}`,
+        texto: `${Math.round(c.percentualUsado * 100)}% já fornecido. Procure a próxima licitação desse órgão.`,
+        href: "/painel/contratos",
+        chave: `contrato_saldo:${c.id}`,
+      });
+    }
+
+    // Prefeitura em atraso. Avisa uma vez por dia enquanto durar — é dinheiro
+    // já entregue e faturado que não entrou.
+    for (const f of c.fornecimentosCalculados) {
+      if (f.pago || f.diasDeAtraso <= 0) continue;
+      pendentes.push({
+        tipo: "contrato",
+        titulo: `Atrasado ${f.diasDeAtraso} dia(s): ${c.orgao}`,
+        texto: `${f.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}${f.notaFiscal ? ` — NF ${f.notaFiscal}` : ""} venceu em ${paraBrasileiro(f.vencePagamentoEm)}.`,
+        href: "/painel/contratos",
+        chave: `contrato_atraso:${f.id}:${hoje}`,
+      });
     }
   }
 

@@ -13,7 +13,7 @@ const groups: Array<{
     label: string;
     icon: React.ReactNode;
     preenchido?: boolean;
-    badgeKey?: "whatsapp" | "licitacoes" | "documentos";
+    badgeKey?: "whatsapp" | "licitacoes" | "documentos" | "contratos";
   }>;
 }> = [
   {
@@ -60,6 +60,17 @@ const groups: Array<{
           <path d="M4 8h12M4 8l-1.5 4a2 2 0 0 0 4 0L5 8m10 0l1.5 4a2 2 0 0 1-4 0L14 8M10 4v14M7 18h6" />
         ),
         badgeKey: "licitacoes",
+      },
+      {
+        href: "/painel/contratos",
+        label: "Contratos",
+        icon: (
+          <>
+            <path d="M4 4.5h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1z" />
+            <path d="M6 8h5M6 11h5M14 7.5h2a1 1 0 0 1 1 1v6a2 2 0 0 1-4 0" />
+          </>
+        ),
+        badgeKey: "contratos",
       },
       {
         href: "/painel/documentos",
@@ -171,13 +182,15 @@ export default function Sidebar() {
   const [needsAttentionCount, setNeedsAttentionCount] = useState(0);
   const [licitacoesNovas, setLicitacoesNovas] = useState(0);
   const [documentosProblema, setDocumentosProblema] = useState(0);
+  const [contratosProblema, setContratosProblema] = useState(0);
 
   const loadBadge = useCallback(async () => {
     try {
-      const [convRes, licRes, docRes] = await Promise.all([
+      const [convRes, licRes, docRes, contRes] = await Promise.all([
         fetch("/api/whatsapp/conversations"),
         fetch("/api/licitacoes/resumo"),
         fetch("/api/documentos"),
+        fetch("/api/contratos"),
       ]);
 
       const convData = await convRes.json();
@@ -197,6 +210,15 @@ export default function Sidebar() {
       const r = docData.resumo ?? {};
       setDocumentosProblema(
         (r.vencidos ?? 0) + (r.semArquivo ?? 0) + (r.venceEmBreve ?? 0)
+      );
+
+      // No contrato o badge conta ocorrência, não valor: vigência acabando e
+      // pagamento atrasado são as duas coisas que exigem alguém ligar pro
+      // órgão hoje.
+      const contData = await contRes.json();
+      const rc = contData.resumo ?? {};
+      setContratosProblema(
+        (rc.vencendo ?? 0) + ((rc.emAtraso ?? 0) > 0 ? 1 : 0)
       );
     } catch {
       // silencioso: próxima atualização tenta de novo
@@ -249,7 +271,9 @@ export default function Sidebar() {
                     ? licitacoesNovas
                     : link.badgeKey === "documentos" && documentosProblema > 0
                       ? documentosProblema
-                      : null;
+                      : link.badgeKey === "contratos" && contratosProblema > 0
+                        ? contratosProblema
+                        : null;
               // Licitação nova é oportunidade, não problema — verde. Conversa
               // parada esperando resposta continua sendo vermelho.
               const badgeCor =

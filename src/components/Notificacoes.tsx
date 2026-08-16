@@ -11,6 +11,7 @@ type Notificacao = {
     | "whatsapp"
     | "estoque"
     | "documento"
+    | "contrato"
     | "sistema";
   titulo: string;
   texto: string;
@@ -33,6 +34,7 @@ const ICONE: Record<Notificacao["tipo"], React.ReactNode> = {
   whatsapp: LOGO_WHATSAPP,
   estoque: "!",
   documento: "📄",
+  contrato: "R$",
   sistema: "i",
 };
 
@@ -44,6 +46,7 @@ const COR: Record<Notificacao["tipo"], string> = {
   whatsapp: "bg-[#25D366]/15 text-[#128C7E]",
   estoque: "bg-rose-100 text-rose-600",
   documento: "bg-orange-100 text-orange-700",
+  contrato: "bg-sky-100 text-sky-700 text-[10px]",
   sistema: "bg-neutral-100 text-neutral-600",
 };
 

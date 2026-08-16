@@ -35,6 +35,18 @@ npm ci --no-audit --no-fund --silent
 echo
 echo "==> Compilando em $NOVA (o painel continua no ar durante isso)"
 rm -rf "$NOVA"
+
+# Descarta os tipos gerados no build anterior antes de compilar.
+#
+# O tsconfig manda o TypeScript ler `.next/types/**/*.ts`, que o Next gera
+# com um arquivo de validação por rota. Quando uma rota é APAGADA, esse
+# arquivo velho continua lá importando um módulo que não existe mais, e a
+# checagem de tipos falha por causa do build passado, não do código novo.
+# Aconteceu em 16/08/2026, ao remover /api/cron.
+#
+# Só os tipos são apagados; o resto do .next continua servindo o painel.
+rm -rf .next/types .next/dev
+
 NEXT_DIST_DIR="$NOVA" NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 # Só troca se o build realmente produziu algo utilizável. Sem esta checagem,

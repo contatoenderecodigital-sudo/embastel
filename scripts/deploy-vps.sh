@@ -24,9 +24,27 @@ ANTIGA=".next-antiga"
 cd "$PASTA_APP"
 
 echo "==> Buscando o código novo"
+ASSINATURA_ANTES=$(sha1sum "$0" | cut -d' ' -f1)
 git fetch --quiet origin
 git reset --hard origin/master --quiet
 git log --oneline -1
+
+# Este script atualiza a si mesmo, e o bash lê o arquivo enquanto executa.
+#
+# Quando o `git reset` acima traz uma versão nova DESTE arquivo, o resto da
+# execução vira uma mistura: o bash já leu parte do texto antigo e continua
+# lendo do offset em que estava, agora dentro do conteúdo novo. Na prática a
+# correção que você acabou de publicar não roda nesta vez — só na próxima.
+# Aconteceu em 16/08/2026 e custou um deploy que falhou por um motivo que já
+# estava corrigido no commit.
+#
+# Se o script mudou, começa de novo do zero com a versão nova. A variável
+# impede laço infinito caso algo dê errado na comparação.
+if [ "$ASSINATURA_ANTES" != "$(sha1sum "$0" | cut -d' ' -f1)" ] &&
+   [ -z "${DEPLOY_REEXECUTADO:-}" ]; then
+  echo "==> O próprio script de deploy mudou; recomeçando com a versão nova"
+  DEPLOY_REEXECUTADO=1 exec bash "$0" "$@"
+fi
 
 echo
 echo "==> Instalando dependências (se mudaram)"

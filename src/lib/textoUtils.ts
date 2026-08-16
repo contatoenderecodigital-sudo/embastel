@@ -35,6 +35,46 @@ export function palavraQueCombinou(texto: string, palavras: string[]): string | 
 }
 
 /**
+ * Como `palavraQueCombinou`, mas só aceita a palavra se ela aparecer no
+ * COMEÇO do texto — e devolve a que aparece mais cedo, não a primeira da lista.
+ *
+ * Existe por causa da descrição de item do PNCP, que é escrita como
+ * "Nome do produto atributo: valor, atributo: valor, ...". A identidade do
+ * produto está no começo; o resto são características. E "embalagem" aparece
+ * como característica de quase tudo que o governo compra: café ("Embalagem
+ * primária: a vácuo"), grampeador ("EMBALAGEM: Caixa contendo 5000"), agulha
+ * ("embalagem individual").
+ *
+ * Medido em 16/08/2026 sobre 161 itens já lidos do PNCP: casar em qualquer
+ * posição trazia 2 itens do ramo pra cada 3 de fora (grampeador, café, arroz,
+ * bisturi). Exigindo a palavra nos primeiros 60 caracteres, sobraram 84; com
+ * as exclusões de item junto, 53 — dos quais 51 são mercadoria da loja.
+ *
+ * 60 caracteres e não menos: descrições de catálogo põem o nome primeiro mas
+ * a palavra-chave nos atributos ("Prato aplicação: refeição, características
+ * adicionais: descartável"), e apertar pra 40 perdia esses.
+ */
+export function palavraNoInicio(
+  texto: string,
+  palavras: string[],
+  limite = 60
+): string | null {
+  const alvo = normalizarTexto(texto);
+  let melhorTermo: string | null = null;
+  let melhorPosicao = Number.POSITIVE_INFINITY;
+
+  for (const termo of palavras.map((p) => p.trim()).filter(Boolean)) {
+    const posicao = alvo.indexOf(normalizarTexto(termo));
+    if (posicao >= 0 && posicao < melhorPosicao) {
+      melhorPosicao = posicao;
+      melhorTermo = termo;
+    }
+  }
+
+  return melhorPosicao <= limite ? melhorTermo : null;
+}
+
+/**
  * Qual termo de exclusão apareceu no texto (null se nenhum). Uma licitação que
  * bate numa exclusão é descartada mesmo tendo casado com uma palavra-chave —
  * é o que separa "aquisição de embalagens" de "ureia acondicionada em

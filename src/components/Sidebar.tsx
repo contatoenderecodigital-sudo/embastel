@@ -36,6 +36,18 @@ const groups: Array<{
         label: "Tarefas",
         icon: <path d="M4 5.5h12M4 10h12M4 14.5h7" />,
       },
+      {
+        href: "/painel/relatorios",
+        label: "Relatórios",
+        icon: (
+          <>
+            <path d="M3 16.5h14" />
+            <rect x="4.5" y="9" width="3" height="6" rx="0.8" />
+            <rect x="9" y="5.5" width="3" height="9.5" rx="0.8" />
+            <rect x="13.5" y="11.5" width="3" height="3.5" rx="0.8" />
+          </>
+        ),
+      },
     ],
   },
   {
@@ -60,6 +72,26 @@ const groups: Array<{
           <path d="M4 8h12M4 8l-1.5 4a2 2 0 0 0 4 0L5 8m10 0l1.5 4a2 2 0 0 1-4 0L14 8M10 4v14M7 18h6" />
         ),
         badgeKey: "licitacoes",
+      },
+      {
+        href: "/painel/precos",
+        label: "Preços",
+        icon: (
+          <>
+            <path d="M3 12.5 10 3l7 9.5M4.5 12.5h11M6.5 16.5h7" />
+            <circle cx="10" cy="8" r="1.6" />
+          </>
+        ),
+      },
+      {
+        href: "/painel/catalogo",
+        label: "Catálogo",
+        icon: (
+          <>
+            <rect x="3" y="3.5" width="14" height="13" rx="1.5" />
+            <path d="M3 7.5h14M7 3.5v13" />
+          </>
+        ),
       },
       {
         href: "/painel/contratos",

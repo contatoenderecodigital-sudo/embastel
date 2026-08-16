@@ -117,3 +117,52 @@ export type LicitacaoResultado = {
   // Veredito da IA sobre "a Embastel vende isso?" (ver triagemIA.ts).
   triagem?: { serve: boolean; motivo: string };
 };
+
+// Exclusões que valem só na DESCRIÇÃO DO ITEM, não no objeto da licitação.
+//
+// A lista de cima (DEFAULT_EXCLUSOES) julga o texto que o órgão escreveu pra
+// resumir a compra inteira. Aqui é outro nível: um único lote dentro de um
+// pregão de "material de consumo". E aí o ruído tem outra cara — o campeão é
+// material hospitalar descartável, que casa com "descartáve" e não é do ramo
+// da loja: agulha, luva, máscara, avental, espéculo, propé, touca cirúrgica.
+//
+// Todos os termos abaixo foram tirados de itens reais lidos do PNCP em
+// 16/08/2026, não inventados. Junto com a regra de posição
+// (ver palavraNoInicio, em textoUtils.ts), levaram a precisão de ~33% pra ~96%.
+export const EXCLUSOES_ITEM = [
+  // material hospitalar e cirúrgico
+  "agulha",
+  "seringa",
+  "luva",
+  "máscara",
+  "avental",
+  "espéculo",
+  "lençol",
+  "propé",
+  "touca cirúrgica",
+  "cateter",
+  "sonda",
+  "gaze",
+  "atadura",
+  "esparadrapo",
+  "curativo",
+  "cirúrgic",
+  "hospitalar",
+  "enteral",
+  "laríngea",
+  "escalpe",
+  "bisturi",
+  "raqui",
+  "monopolar",
+  "diálise",
+  "coletor de urina",
+  "torneirinha",
+  "dânula",
+  // itens de outro ramo que casavam pela característica, não pelo produto
+  "aparelho de barbear",
+  "papel carbono",
+  "para pintura",
+  // "Embalagem primária:" é o campo padrão da ficha de ALIMENTO no catálogo do
+  // governo — aparece em arroz, feijão, café, açúcar, farinha e macarrão.
+  "embalagem primária",
+];

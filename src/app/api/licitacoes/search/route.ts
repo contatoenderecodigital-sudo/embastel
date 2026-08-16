@@ -17,6 +17,15 @@ export async function GET(request: NextRequest) {
   // o coletor usa pra decidir o que vira notificação, então tem que ser uma só.
   const { licitacaoExclusoes } = await getSettings();
   const uf = searchParams.get("uf") || undefined;
+  const municipio = searchParams.get("municipio") || undefined;
+  const numeroOuUndefined = (chave: string) => {
+    const bruto = searchParams.get(chave);
+    if (!bruto) return undefined;
+    const valor = Number(bruto);
+    return Number.isFinite(valor) ? valor : undefined;
+  };
+  const valorMin = numeroOuUndefined("valorMin");
+  const valorMax = numeroOuUndefined("valorMax");
   const minDeadlineDays = searchParams.get("minDeadlineDays")
     ? Number(searchParams.get("minDeadlineDays"))
     : undefined;
@@ -46,6 +55,9 @@ export async function GET(request: NextRequest) {
       keywords,
       exclusoes: licitacaoExclusoes,
       uf,
+      municipio,
+      valorMin,
+      valorMax,
       modalidades,
       minDeadlineDays,
       raio,

@@ -1,6 +1,6 @@
 import { haversineKm } from "./geoUtils";
 import { lerIndice } from "./licitacoesIndexDb";
-import { exclusaoQueBateu, palavraQueCombinou } from "./textoUtils";
+import { exclusaoQueBateu, normalizarTexto, palavraQueCombinou } from "./textoUtils";
 import type { LicitacaoResultado } from "./pncpTypes";
 
 export { MODALIDADES, DEFAULT_MODALIDADES, DEFAULT_KEYWORDS } from "./pncpTypes";
@@ -32,6 +32,15 @@ export async function searchLicitacoes(options: {
   // Termos que descartam a licitação mesmo casando com uma palavra-chave.
   exclusoes?: string[];
   uf?: string;
+  // Trecho do nome do município. Frete decide venda de embalagem: um pregão em
+  // Xanxerê e um em Manaus não são a mesma oportunidade, e nenhum portal
+  // permite filtrar abaixo do estado.
+  municipio?: string;
+  // Faixa de valor estimado. Serve pros dois lados: esconder o pregão de
+  // R$ 3 mil que não paga o trabalho, e o de R$ 2 milhões que a loja não tem
+  // fôlego pra entregar.
+  valorMin?: number;
+  valorMax?: number;
   modalidades?: number[];
   // Só inclui licitações cujo prazo de encerramento ainda tem pelo menos
   // esse número de dias — evita mostrar oportunidades em cima da hora sem
@@ -46,12 +55,33 @@ export async function searchLicitacoes(options: {
   const indice = await lerIndice();
   const agora = Date.now();
   const modalidades = options.modalidades?.length ? new Set(options.modalidades) : null;
+  const municipioBuscado = options.municipio
+    ? normalizarTexto(options.municipio)
+    : null;
 
   const items: LicitacaoResultado[] = [];
 
   for (const item of indice.items) {
     if (modalidades && !modalidades.has(item.modalidadeId)) continue;
     if (options.uf && item.uf !== options.uf) continue;
+
+    if (municipioBuscado && !normalizarTexto(item.municipio).includes(municipioBuscado)) {
+      continue;
+    }
+
+    // Valor desconhecido passa nos dois filtros: muitos órgãos publicam com
+    // orçamento sigiloso, e esconder a licitação seria pior do que mostrá-la
+    // sem o número.
+    //
+    // Zero conta como desconhecido, e não como "R$ 0,00" — é assim que o PNCP
+    // devolve o orçamento sigiloso. São 897 das 12.581 do índice (7%), medido
+    // em 16/08/2026. Tratando zero como valor real, essas 897 sumiriam de
+    // qualquer busca com valor mínimo e apareceriam em toda busca com valor
+    // máximo, nos dois casos pelo motivo errado.
+    if (item.valorEstimado != null && item.valorEstimado > 0) {
+      if (options.valorMin != null && item.valorEstimado < options.valorMin) continue;
+      if (options.valorMax != null && item.valorEstimado > options.valorMax) continue;
+    }
 
     const texto = `${item.objeto} ${item.informacaoComplementar ?? ""}`;
 

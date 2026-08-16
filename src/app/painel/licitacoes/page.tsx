@@ -120,6 +120,9 @@ export default function LicitacoesPage() {
   const [exclusoes, setExclusoes] = useState("");
   const [minDeadlineDays, setMinDeadlineDays] = useState(0);
   const [raioKm, setRaioKm] = useState(250);
+  const [municipio, setMunicipio] = useState("");
+  const [valorMin, setValorMin] = useState("");
+  const [valorMax, setValorMax] = useState("");
   const [modalidades, setModalidades] = useState<number[]>([6, 8]);
   const [somenteNovas, setSomenteNovas] = useState(false);
 
@@ -242,6 +245,9 @@ export default function LicitacoesPage() {
       const params = new URLSearchParams({ keywords });
       if (minDeadlineDays) params.set("minDeadlineDays", String(minDeadlineDays));
       if (raioKm) params.set("raioKm", String(raioKm));
+      if (municipio.trim()) params.set("municipio", municipio.trim());
+      if (valorMin.trim()) params.set("valorMin", valorMin.replace(",", "."));
+      if (valorMax.trim()) params.set("valorMax", valorMax.replace(",", "."));
       if (modalidades.length) params.set("modalidades", modalidades.join(","));
 
       const res = await fetch(`/api/licitacoes/search?${params.toString()}`);
@@ -256,7 +262,7 @@ export default function LicitacoesPage() {
     } finally {
       setLoading(false);
     }
-  }, [keywords, minDeadlineDays, raioKm, modalidades]);
+  }, [keywords, minDeadlineDays, raioKm, municipio, valorMin, valorMax, modalidades]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -662,6 +668,45 @@ export default function LicitacoesPage() {
                 max={60}
                 value={minDeadlineDays}
                 onChange={(e) => setMinDeadlineDays(Number(e.target.value))}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+            </div>
+
+            {/* Filtros que nenhum portal oferece: abaixo do estado e por
+                tamanho da compra. Frete decide venda de embalagem, e um pregão
+                de R$ 3 mil não paga o trabalho de montar a proposta. */}
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-neutral-700">
+                Município (parte do nome)
+              </label>
+              <input
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+                placeholder="ex: xanxerê, chapecó"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-neutral-700">
+                Valor mínimo (R$)
+              </label>
+              <input
+                value={valorMin}
+                inputMode="decimal"
+                onChange={(e) => setValorMin(e.target.value)}
+                placeholder="sem mínimo"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-neutral-700">
+                Valor máximo (R$)
+              </label>
+              <input
+                value={valorMax}
+                inputMode="decimal"
+                onChange={(e) => setValorMax(e.target.value)}
+                placeholder="sem máximo"
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
               />
             </div>

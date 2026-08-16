@@ -11,11 +11,23 @@ import { ITENS_INICIAIS } from "./conferenciaSeed";
 
 export type Periodicidade = "semanal" | "quinzenal";
 
+// Quem cuida do quê. A Eli e o Valdecir tomam conta de partes diferentes do
+// estoque, e o estoque não fica tudo num lugar só — então uma lista única de
+// 129 itens obriga cada um a garimpar os seus no meio dos do outro, andando
+// pelo depósito fora de ordem.
+//
+// Fica como texto livre, e não como lista fechada de duas pessoas: quem
+// confere muda (férias, alguém novo, o dono fazendo no sábado), e uma lista
+// fixa no código viraria pedido de alteração toda vez.
 export type ItemConferencia = {
   id: string;
   codigo: string;
   descricao: string;
   periodicidade: Periodicidade;
+  /** Nome de quem confere este item. Vazio = ainda não dividido. */
+  responsavel: string;
+  /** Onde o item fica guardado — prateleira, galpão, sala. */
+  local: string;
   // Quanto deveria ter em estoque. Opcional de propósito — o usuário disse
   // que nem sempre sabe o número ideal na hora de cadastrar.
   quantidadeIdeal: number | null;
@@ -30,6 +42,10 @@ export type RegistroContagem = {
   itemId: string;
   codigo: string;
   descricao: string;
+  // Copiados no fechamento: se o item mudar de dono depois, o histórico
+  // continua mostrando quem contou naquele dia.
+  responsavel: string;
+  local: string;
   quantidade: number;
   quantidadeIdeal: number | null;
 };
@@ -57,6 +73,8 @@ const store = jsonStore<ConferenciaData>("conferencia-estoque.json", {
     codigo: item.codigo,
     descricao: item.descricao,
     periodicidade: item.periodicidade,
+    responsavel: "",
+    local: "",
     quantidadeIdeal: null,
     ultimaContagem: null,
     ultimaConferenciaEm: null,
@@ -88,13 +106,39 @@ export function estaVencido(item: ItemConferencia, agora = Date.now()): boolean 
 
 export async function listItens(): Promise<ItemConferencia[]> {
   const data = await store.read();
-  return [...data.itens].sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
+  // Itens salvos antes da divisão por pessoa não têm os campos novos. Sem
+  // este preenchimento, a tela receberia `undefined` e quebraria no filtro.
+  return [...data.itens]
+    .map((item) => ({
+      ...item,
+      responsavel: item.responsavel ?? "",
+      local: item.local ?? "",
+    }))
+    .sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
+}
+
+/** Nomes e locais já usados, pra virarem sugestão em vez de digitação. */
+export async function listResponsaveisELocais(): Promise<{
+  responsaveis: string[];
+  locais: string[];
+}> {
+  const data = await store.read();
+  const responsaveis = new Set<string>();
+  const locais = new Set<string>();
+  for (const item of data.itens) {
+    if (item.responsavel) responsaveis.add(item.responsavel);
+    if (item.local) locais.add(item.local);
+  }
+  const ordenar = (s: Set<string>) => [...s].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  return { responsaveis: ordenar(responsaveis), locais: ordenar(locais) };
 }
 
 export async function addItem(input: {
   codigo?: string | null;
   descricao: string;
   periodicidade: Periodicidade;
+  responsavel?: string | null;
+  local?: string | null;
   quantidadeIdeal?: number | null;
 }): Promise<ItemConferencia> {
   return store.update((data) => {
@@ -103,6 +147,8 @@ export async function addItem(input: {
       codigo: input.codigo?.trim() || "",
       descricao: input.descricao.trim(),
       periodicidade: input.periodicidade,
+      responsavel: input.responsavel?.trim() || "",
+      local: input.local?.trim() || "",
       quantidadeIdeal: input.quantidadeIdeal ?? null,
       ultimaContagem: null,
       ultimaConferenciaEm: null,
@@ -119,7 +165,13 @@ export async function updateItem(
   patch: Partial<
     Pick<
       ItemConferencia,
-      "codigo" | "descricao" | "periodicidade" | "quantidadeIdeal" | "ativo"
+      | "codigo"
+      | "descricao"
+      | "periodicidade"
+      | "responsavel"
+      | "local"
+      | "quantidadeIdeal"
+      | "ativo"
     >
   >
 ): Promise<ItemConferencia | null> {
@@ -132,6 +184,39 @@ export async function updateItem(
       }
     }
     return item;
+  });
+}
+
+/**
+ * Aplica responsável e/ou local a vários itens de uma vez.
+ *
+ * São 129 itens na lista da Embastel. Dividir isso entre duas pessoas item a
+ * item seria 129 idas ao servidor e uma tarde perdida — e é o tipo de coisa
+ * que a pessoa desiste no meio, deixando metade da lista sem dono.
+ *
+ * Campo não enviado fica como está: dá pra marcar o responsável de um grupo
+ * sem mexer no local que já estava certo.
+ */
+export async function atribuirEmLote(input: {
+  ids: string[];
+  responsavel?: string | null;
+  local?: string | null;
+}): Promise<number> {
+  if (!input.ids.length) return 0;
+  const alvo = new Set(input.ids);
+  return store.update((data) => {
+    let alterados = 0;
+    for (const item of data.itens) {
+      if (!alvo.has(item.id)) continue;
+      if (input.responsavel !== undefined) {
+        item.responsavel = input.responsavel?.trim() || "";
+      }
+      if (input.local !== undefined) {
+        item.local = input.local?.trim() || "";
+      }
+      alterados += 1;
+    }
+    return alterados;
   });
 }
 
@@ -167,6 +252,8 @@ export async function salvarConferencia(input: {
         itemId: item.id,
         codigo: item.codigo,
         descricao: item.descricao,
+        responsavel: item.responsavel ?? "",
+        local: item.local ?? "",
         quantidade: contagem.quantidade,
         quantidadeIdeal: item.quantidadeIdeal,
       });

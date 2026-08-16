@@ -13,8 +13,6 @@ const LIVRES = [
   // O webhook do WhatsApp é chamado pela Meta, que não tem como fazer login;
   // ele tem a própria verificação por token (WHATSAPP_VERIFY_TOKEN).
   "/api/whatsapp/webhook",
-  // As rotas de cron são chamadas pelo Vercel e se protegem com CRON_SECRET.
-  "/api/cron",
 ];
 
 /**

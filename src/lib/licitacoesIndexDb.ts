@@ -169,10 +169,9 @@ export async function podarEFinalizarIndice(
 // ter milhares de registros) só pra atualizar um contador.
 // ---------------------------------------------------------------------------
 
-// Onde a varredura parou. É o que permite a coleta ser retomada de onde ficou
-// numa próxima execução — no Vercel a função é morta por volta de 60s, e uma
-// varredura completa do PNCP leva minutos. O cron chama de tempos em tempos e
-// cada chamada empurra o cursor um pouco mais.
+// Onde a varredura parou. É o que permite a coleta ser retomada de onde ficou:
+// uma varredura completa do PNCP leva minutos, e cada chamada de avancarColeta
+// empurra o cursor um pouco mais em vez de refazer tudo.
 export type CursorColeta = {
   ufs: Array<string | null>;
   modalidades: number[];

@@ -168,9 +168,6 @@ sinaliza. Assim que você responde manualmente, a IA pausa naquela conversa.
 
 ## Próximos passos
 
-- **Hospedagem**: hoje o painel só roda local, e sem ele aberto não há coleta nem
-  aviso. Publicando (Vercel, ou junto do site embastelembalagens.com.br) o coletor
-  roda 24h e dá pra mandar alerta no WhatsApp/e-mail de verdade.
 - **Cobertura multi-portal**: hoje só o PNCP. Fora dele existem Diários Oficiais,
   Licitações-e/BLL e portais próprios de prefeitura.
 - **Ler o edital completo**: baixar o PDF e deixar a IA conferir exigências de

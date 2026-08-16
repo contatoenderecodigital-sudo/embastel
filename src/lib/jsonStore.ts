@@ -190,28 +190,20 @@ export type Store<T> = {
 const stores = new Map<string, Store<unknown>>();
 
 /**
- * Escolhe onde os dados moram:
+ * Os dados moram em arquivos na pasta `data/`, tanto na sua máquina quanto no
+ * servidor. É o mesmo caminho nos dois lugares, então o que funciona aqui
+ * funciona lá.
  *
- * - **Com DATABASE_URL** (produção/Vercel): Postgres. Obrigatório lá, porque o
- *   disco do Vercel é somente leitura e efêmero — gravar em arquivo falha, e o
- *   que por acaso desse certo sumiria na requisição seguinte.
- * - **Sem DATABASE_URL** (seu computador): arquivos em `data/`, que é como o
- *   painel sempre funcionou e continua funcionando sem depender de internet.
+ * Existiu por um tempo um segundo caminho, em Postgres, porque a ideia era
+ * publicar numa hospedagem sem disco gravável. O painel foi pra um servidor
+ * com disco de verdade, e o Postgres virou peso morto: uma dependência a
+ * mais, um banco a manter e dois caminhos de gravação pra manter iguais.
  */
 export function jsonStore<T>(fileName: string, defaultData: T): Store<T> {
   const existing = stores.get(fileName);
   if (existing) return existing as Store<T>;
 
-  let store: Store<T>;
-  if (process.env.DATABASE_URL) {
-    // Import tardio: o driver do Postgres não é carregado em quem roda local.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PgStore } = require("./pgStore") as typeof import("./pgStore");
-    store = new PgStore<T>(fileName, defaultData);
-  } else {
-    store = new JsonStore<T>(fileName, defaultData);
-  }
-
+  const store = new JsonStore<T>(fileName, defaultData);
   stores.set(fileName, store as Store<unknown>);
   return store;
 }

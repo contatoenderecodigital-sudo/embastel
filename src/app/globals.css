@@ -98,3 +98,62 @@ textarea::placeholder {
     max-width: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Mãozinha em tudo que é clicável.
+
+   O padrão do navegador é seta em botão e mãozinha só em link — herança de
+   quando "link" e "botão de formulário" eram coisas visualmente distintas. No
+   painel quase tudo é <button> (abas, filtros, salvar, arrastar do kanban), e
+   a seta faz parecer que não clica.
+
+   Vale pros elementos de fato acionáveis, não pra qualquer coisa com onClick:
+   input de texto continua com cursor de texto, e o que está desabilitado
+   ganha a seta de "não vai acontecer nada" em vez de mentir que clica.
+   --------------------------------------------------------------------------- */
+button,
+summary,
+label,
+select,
+[role="button"],
+[role="tab"],
+[draggable="true"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+input[type="submit"],
+input[type="button"],
+input[type="color"],
+input[type="range"],
+input[type="date"],
+input[type="time"] {
+  cursor: pointer;
+}
+
+/* `cursor` é herdado, e no painel quase todo campo vem dentro de um <label>
+   (o rótulo em cima, o input embaixo). Sem devolver o cursor de texto aqui, a
+   mãozinha do label vazaria pra dentro de cada caixa de digitação. */
+input:not([type]),
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+textarea {
+  cursor: text;
+}
+
+/* Desabilitado não é clicável — mostrar mãozinha ali é promessa falsa. */
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Enquanto o item está sendo arrastado, o cursor certo é o de "segurando". */
+[draggable="true"]:active {
+  cursor: grabbing;
+}

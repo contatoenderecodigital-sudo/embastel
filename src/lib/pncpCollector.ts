@@ -26,13 +26,13 @@ import { triagemDisponivel, triarLicitacoes } from "./triagemIA";
 //
 // Motivo: uma varredura completa do PNCP (SC + PR + RS, pregão e dispensa, 30
 // dias) passa de 500 páginas e leva mais de 10 minutos, e ainda precisa
-// geocodificar centenas de municípios a 1 requisição por segundo. No Vercel a
-// função é encerrada por volta de 60 segundos — não existe "deixar rodando".
+// geocodificar centenas de municípios a 1 requisição por segundo. Um trabalho
+// desse tamanho não pode depender de nada dar certo do começo ao fim.
 //
 // Então cada chamada de avancarColeta() trabalha por um orçamento de tempo,
-// grava onde parou (o cursor) e devolve o controle. O cron chama de novo alguns
-// minutos depois e ela continua exatamente dali. Rodando no seu computador, o
-// mesmo mecanismo é usado em laço até terminar.
+// grava onde parou (o cursor) e devolve o controle. Se o servidor reiniciar no
+// meio — publicação, queda de energia, erro —, a próxima chamada continua
+// exatamente dali em vez de recomeçar do zero.
 //
 // Fases: lendo_pncp → localizando_cidades → triando → concluida
 // ---------------------------------------------------------------------------
@@ -451,9 +451,9 @@ export async function avancarColeta(orcamentoMs: number): Promise<ColetaStatus> 
 }
 
 /**
- * Roda a coleta até o fim, chamando avancarColeta em laço. Só serve para quem
- * roda o painel no próprio computador, onde o processo vive o tempo que
- * precisar — no Vercel quem faz esse papel é o cron.
+ * Roda a coleta até o fim, chamando avancarColeta em laço. O processo do
+ * painel fica vivo o tempo que precisar, tanto na sua máquina quanto no
+ * servidor, então dá pra levar a varredura inteira de uma vez.
  */
 export async function coletarAteOFim(): Promise<ColetaStatus> {
   let status = await lerStatusColeta();
@@ -478,16 +478,13 @@ export function coletarLicitacoes(): Promise<ColetaStatus> {
 }
 
 // ---------------------------------------------------------------------------
-// Agendamento local (no Vercel quem chama é o cron — ver src/app/api/cron)
+// Agendamento — ligado pelo instrumentation.ts quando o servidor sobe
 // ---------------------------------------------------------------------------
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
 export async function iniciarAgendadorDeColeta(): Promise<void> {
   if (timer) return;
-  // Em produção serverless não existe processo vivo pra agendar nada; lá o
-  // disparo vem do cron do Vercel batendo em /api/cron/coleta.
-  if (process.env.VERCEL) return;
 
   const settings = await getSettings();
   const intervaloMs = Math.max(1, settings.licitacaoIntervaloHoras) * 60 * 60 * 1000;

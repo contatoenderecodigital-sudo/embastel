@@ -91,12 +91,10 @@ export type OpcoesFetch = {
    */
   onRetry?: (tentativa: number, esperaMs: number) => void | Promise<void>;
   /**
-   * Instante (Date.now()) além do qual não vale mais insistir. Existe porque
-   * em produção isso roda dentro de uma função que o Vercel encerra por volta
-   * de 60s: sem o prazo, uma única página teimosa consumia ~2min50s em
-   * tentativas e a função era morta no meio, perdendo o trabalho da rodada
-   * inteira. Com ele, a leitura desiste a tempo, grava onde parou, e a próxima
-   * execução do cron continua dali.
+   * Instante (Date.now()) além do qual não vale mais insistir. Sem o prazo,
+   * uma única página teimosa consumia ~2min50s em tentativas e estourava o
+   * orçamento da rodada inteira, que era perdida no meio. Com ele, a leitura
+   * desiste a tempo, grava onde parou, e a próxima rodada continua dali.
    */
   deadline?: number;
 };

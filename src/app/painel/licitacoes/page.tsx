@@ -10,27 +10,59 @@ const currency = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
+// Formato curto pro total de cada coluna do quadro, onde não cabe o valor
+// inteiro (R$ 1,2 mi em vez de R$ 1.234.567,00).
+const compacto = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+// A ordem das colunas é a ordem em que as etapas acontecem de verdade num
+// pregão eletrônico — ver o comentário em licitacoesTrackingDb.ts.
 const STATUS_ORDER: LicitacaoStatus[] = [
   "de_olho",
   "preparando",
   "enviada",
+  "em_disputa",
+  "habilitacao",
   "ganhou",
+  "entregando",
   "perdeu",
 ];
 
 const STATUS_LABEL: Record<LicitacaoStatus, string> = {
   de_olho: "De olho",
-  preparando: "Preparando proposta",
-  enviada: "Proposta enviada",
+  preparando: "Preparando",
+  enviada: "Enviada",
+  em_disputa: "Em disputa",
+  habilitacao: "Habilitação",
   ganhou: "Ganhou",
+  entregando: "Entregando",
   perdeu: "Perdeu",
+};
+
+// O que fazer em cada etapa, pra quem abrir o quadro não precisar lembrar.
+const STATUS_AJUDA: Record<LicitacaoStatus, string> = {
+  de_olho: "Achou e está avaliando se compensa",
+  preparando: "Montando preço e juntando documento",
+  enviada: "Proposta no portal, esperando a sessão",
+  em_disputa: "Sessão de lances acontecendo",
+  habilitacao: "Venceu no preço, conferindo documentos",
+  ganhou: "Homologada, ata ou contrato assinado",
+  entregando: "Fornecendo — registro de preços dura meses",
+  perdeu: "Não deu dessa vez",
 };
 
 const STATUS_ACCENT: Record<LicitacaoStatus, string> = {
   de_olho: "bg-neutral-400",
   preparando: "bg-amber-400",
   enviada: "bg-blue-400",
+  em_disputa: "bg-violet-500",
+  habilitacao: "bg-cyan-500",
   ganhou: "bg-emerald-500",
+  entregando: "bg-teal-500",
   perdeu: "bg-red-400",
 };
 
@@ -124,6 +156,50 @@ export default function LicitacoesPage() {
   const [mostrarEncerradas, setMostrarEncerradas] = useState(false);
   const [editandoNota, setEditandoNota] = useState<string | null>(null);
   const [notaRascunho, setNotaRascunho] = useState("");
+
+  // Arrastar e soltar do quadro. `arrastado` é a licitação na mão,
+  // `colunaAlvo` é a coluna embaixo do cursor (só pra dar o destaque visual).
+  const [arrastado, setArrastado] = useState<string | null>(null);
+  const [colunaAlvo, setColunaAlvo] = useState<LicitacaoStatus | null>(null);
+
+  async function soltarNaColuna(destino: LicitacaoStatus) {
+    const numero = arrastado;
+    setArrastado(null);
+    setColunaAlvo(null);
+    if (!numero) return;
+
+    const item = tracked.find((t) => t.numeroControlePNCP === numero);
+    if (!item || item.status === destino) return;
+
+    // Move o card na hora e só depois grava: esperar a resposta do servidor
+    // pra ver o card mudar de coluna faz o arrastar parecer que não pegou.
+    setTracked((atual) =>
+      atual.map((t) =>
+        t.numeroControlePNCP === numero ? { ...t, status: destino } : t
+      )
+    );
+
+    try {
+      const res = await fetch(
+        `/api/licitacoes/acompanhadas/${encodeURIComponent(numero)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: destino }),
+        }
+      );
+      if (!res.ok) throw new Error();
+    } catch {
+      // Não gravou: desfaz na tela, senão a pessoa fecha o painel achando
+      // que salvou e na próxima abertura o card está no lugar antigo.
+      setTracked((atual) =>
+        atual.map((t) =>
+          t.numeroControlePNCP === numero ? { ...t, status: item.status } : t
+        )
+      );
+      setError("Não deu pra mover a licitação. Tente de novo.");
+    }
+  }
 
   // ---------------------------------------------------------------- carregar
 
@@ -345,10 +421,12 @@ export default function LicitacoesPage() {
     .filter((t) => t.status !== "perdeu")
     .reduce((soma, t) => soma + (t.valorEstimado ?? 0), 0);
 
+  // "Encerrada" aqui é a que ficou pelo caminho: o prazo passou e ela nunca
+  // saiu das três primeiras etapas. Da disputa em diante o prazo ter passado
+  // é o normal, não um problema.
   const encerradasNoFunil = tracked.filter(
     (t) =>
-      t.status !== "ganhou" &&
-      t.status !== "perdeu" &&
+      (t.status === "de_olho" || t.status === "preparando" || t.status === "enviada") &&
       (daysUntil(t.dataEncerramentoProposta) ?? 1) < 0
   ).length;
 
@@ -789,38 +867,91 @@ export default function LicitacoesPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <div className="flex gap-3 overflow-x-auto pb-3">
                 {STATUS_ORDER.map((status) => {
                   const items = tracked
                     .filter((t) => t.status === status)
                     .filter((t) => {
                       if (mostrarEncerradas) return true;
-                      if (status === "ganhou" || status === "perdeu") return true;
+                      // Prazo vencido só significa "perdeu o bonde" nas três
+                      // primeiras etapas. Da disputa em diante o prazo de
+                      // proposta JÁ passou por definição — esconder por isso
+                      // faria a licitação sumir do quadro justamente quando
+                      // ela está andando.
+                      const antesDaSessao =
+                        status === "de_olho" ||
+                        status === "preparando" ||
+                        status === "enviada";
+                      if (!antesDaSessao) return true;
                       return (daysUntil(t.dataEncerramentoProposta) ?? 1) >= 0;
                     });
+                  const totalColuna = items.reduce(
+                    (s, i) => s + (i.valorEstimado ?? 0),
+                    0
+                  );
+                  const alvo = colunaAlvo === status;
                   return (
-                    <div key={status} className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 px-1">
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${STATUS_ACCENT[status]}`}
-                        />
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
-                          {STATUS_LABEL[status]}
-                        </span>
-                        <span className="ml-auto text-[11px] font-semibold text-neutral-400">
-                          {items.length}
-                        </span>
+                    <div
+                      key={status}
+                      // Soltar em qualquer lugar da coluna funciona, inclusive
+                      // no vazio embaixo dos cards — mirar num alvo pequeno com
+                      // o mouse é o que torna kanban chato de usar.
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (colunaAlvo !== status) setColunaAlvo(status);
+                      }}
+                      onDragLeave={() => setColunaAlvo(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        soltarNaColuna(status);
+                      }}
+                      className={`flex w-[240px] shrink-0 flex-col gap-2 rounded-xl p-2 transition-colors ${
+                        alvo ? "bg-brand-soft ring-2 ring-brand/30" : "bg-neutral-100/50"
+                      }`}
+                    >
+                      <div className="px-1">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${STATUS_ACCENT[status]}`}
+                          />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-600">
+                            {STATUS_LABEL[status]}
+                          </span>
+                          <span className="ml-auto text-[11px] font-semibold text-neutral-400">
+                            {items.length}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[10px] leading-tight text-neutral-400">
+                          {STATUS_AJUDA[status]}
+                        </p>
+                        {totalColuna > 0 && (
+                          <p className="mt-1 text-[10.5px] font-semibold text-emerald-700">
+                            {compacto.format(totalColuna)}
+                          </p>
+                        )}
                       </div>
 
-                      <div className="flex flex-col gap-2">
+                      <div className="flex min-h-[60px] flex-col gap-2">
                         {items.map((item) => {
                           const badge = deadlineBadge(item.dataEncerramentoProposta);
                           const encerrada =
                             (daysUntil(item.dataEncerramentoProposta) ?? 1) < 0;
+                          const arrastando =
+                            arrastado === item.numeroControlePNCP;
                           return (
                             <div
                               key={item.numeroControlePNCP}
-                              className={`rounded-xl border bg-white p-3 shadow-sm transition-shadow hover:shadow-md ${
+                              draggable
+                              onDragStart={() => setArrastado(item.numeroControlePNCP)}
+                              onDragEnd={() => {
+                                setArrastado(null);
+                                setColunaAlvo(null);
+                              }}
+                              className={`cursor-grab rounded-xl border bg-white p-3 shadow-sm transition-all active:cursor-grabbing ${
+                                arrastando
+                                  ? "rotate-1 opacity-40 shadow-lg"
+                                  : "hover:shadow-md"
+                              } ${
                                 encerrada
                                   ? "border-neutral-200 opacity-60"
                                   : "border-neutral-200"

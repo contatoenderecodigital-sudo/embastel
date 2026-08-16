@@ -1,10 +1,22 @@
 import { jsonStore } from "./jsonStore";
 
+// As etapas pelas quais uma licitação passa, na ordem em que acontecem.
+//
+// Antes eram só cinco, e paravam em "ganhou" — mas ganhar não é o fim: num
+// registro de preços a Embastel fica fornecendo por meses depois da ata
+// assinada, e é justamente aí que o dinheiro entra. Também faltavam as duas
+// etapas do meio, que num pregão eletrônico são momentos separados: a sessão
+// de lances (em disputa) e a conferência de documentos de quem venceu no
+// preço (habilitação) — dá pra vencer a disputa e ainda cair na habilitação
+// por causa de uma certidão vencida.
 export type LicitacaoStatus =
   | "de_olho"
   | "preparando"
   | "enviada"
+  | "em_disputa"
+  | "habilitacao"
   | "ganhou"
+  | "entregando"
   | "perdeu";
 
 export type TrackedLicitacao = {

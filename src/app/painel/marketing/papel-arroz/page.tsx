@@ -25,6 +25,9 @@ export default function PapelArrozPage() {
   const [nome, setNome] = useState("");
   const [idade, setIdade] = useState("");
   const [descricao, setDescricao] = useState("");
+  // Onde o nome e a idade ficam impressos sobre a arte, e em que cor.
+  const [posicaoTexto, setPosicaoTexto] = useState<PosicaoTexto>("embaixo");
+  const [corTexto, setCorTexto] = useState<CorTexto>("branco");
   const [promptGerado, setPromptGerado] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const inputArquivo = useRef<HTMLInputElement>(null);
@@ -79,6 +82,8 @@ export default function PapelArrozPage() {
           tema: tema || null,
           nome: nome || null,
           idade: idade || null,
+          posicaoTexto,
+          corTexto,
           descricao: descricao || null,
           imagemDataUrl: imagem,
         }),
@@ -119,6 +124,8 @@ export default function PapelArrozPage() {
     setTema(arte.tema ?? "");
     setNome(arte.nome ?? "");
     setIdade(arte.idade ?? "");
+    setPosicaoTexto(arte.posicaoTexto ?? "embaixo");
+    setCorTexto(arte.corTexto ?? "branco");
     setDescricao(arte.descricao ?? "");
 
     void fetch(`/api/papel-arroz/${arte.id}`, { method: "PATCH" });
@@ -294,8 +301,10 @@ export default function PapelArrozPage() {
               )}
             </div>
 
-            {/* dados da pessoa (só topo) */}
-            {modo === "topo" && (
+            {/* Nome e idade valem nos dois modos: a tag de lembrancinha
+                também leva o nome de quem faz aniversário. Antes esta seção
+                só aparecia no papel de arroz, e nas tags o texto saía impresso
+                sem ter onde mudar. */}
               <div className="rounded-2xl border border-neutral-200/70 bg-white p-5 shadow-sm">
                 <h2 className="mb-1 text-[13px] font-bold text-neutral-900">
                   2. Nome e idade
@@ -317,6 +326,60 @@ export default function PapelArrozPage() {
                     className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
                   />
                 </div>
+                {(nome.trim() || idade.trim()) && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+                    <span className="text-[12px] font-medium text-neutral-600">
+                      Escrever na arte:
+                    </span>
+                    {(
+                      [
+                        ["embaixo", "Embaixo"],
+                        ["emcima", "Em cima"],
+                        ["nenhum", "Não escrever"],
+                      ] as Array<[PosicaoTexto, string]>
+                    ).map(([valor, texto]) => (
+                      <button
+                        key={valor}
+                        onClick={() => setPosicaoTexto(valor)}
+                        className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                          posicaoTexto === valor
+                            ? "brand-gradient text-white shadow-sm"
+                            : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+                        }`}
+                      >
+                        {texto}
+                      </button>
+                    ))}
+                    {posicaoTexto !== "nenhum" && (
+                      <div className="ml-auto flex items-center gap-1.5">
+                        <span className="text-[12px] text-neutral-500">Cor:</span>
+                        {(
+                          [
+                            ["branco", "Branco"],
+                            ["preto", "Preto"],
+                          ] as Array<[CorTexto, string]>
+                        ).map(([valor, texto]) => (
+                          <button
+                            key={valor}
+                            onClick={() => setCorTexto(valor)}
+                            className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                              corTexto === valor
+                                ? "brand-gradient text-white shadow-sm"
+                                : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100"
+                            }`}
+                          >
+                            {texto}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="w-full text-[11px] text-neutral-500">
+                      O texto sai com contorno na cor oposta, pra ler por cima de
+                      foto clara ou escura.
+                    </p>
+                  </div>
+                )}
+
                 <input
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
@@ -324,7 +387,6 @@ export default function PapelArrozPage() {
                   className="mt-3 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
                 />
               </div>
-            )}
 
             {/* medidas */}
             <div className="rounded-2xl border border-neutral-200/70 bg-white p-5 shadow-sm">
@@ -538,6 +600,10 @@ export default function PapelArrozPage() {
                   medidaTopo={medidaTopo}
                   formato={formato}
                   layoutTags={layoutTags}
+                  nome={nome}
+                  idade={idade}
+                  posicaoTexto={posicaoTexto}
+                  corTexto={corTexto}
                 />
               )}
               {!imagem && (
@@ -619,6 +685,7 @@ export default function PapelArrozPage() {
         {imagem && modo === "topo" && (
           <div
             style={{
+              position: "relative",
               width: `${medidaTopo.larguraMm}mm`,
               height: `${medidaTopo.alturaMm}mm`,
               borderRadius: formato === "redondo" ? "50%" : undefined,
@@ -630,6 +697,14 @@ export default function PapelArrozPage() {
               src={imagem}
               alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <TextoNaArte
+              nome={nome}
+              idade={idade}
+              posicao={posicaoTexto}
+              cor={corTexto}
+              largura={medidaTopo.larguraMm}
+              unidade="mm"
             />
           </div>
         )}
@@ -648,6 +723,7 @@ export default function PapelArrozPage() {
               <div
                 key={i}
                 style={{
+                  position: "relative",
                   width: `${layoutTags.diametroMm}mm`,
                   height: `${layoutTags.diametroMm}mm`,
                   borderRadius: "50%",
@@ -659,6 +735,14 @@ export default function PapelArrozPage() {
                   src={imagem}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                <TextoNaArte
+                  nome={nome}
+                  idade={idade}
+                  posicao={posicaoTexto}
+                  cor={corTexto}
+                  largura={layoutTags.diametroMm}
+                  unidade="mm"
                 />
               </div>
             ))}
@@ -716,6 +800,90 @@ export default function PapelArrozPage() {
 
 // ---------------------------------------------------------------------------
 
+export type PosicaoTexto = "embaixo" | "emcima" | "nenhum";
+export type CorTexto = "branco" | "preto";
+
+/**
+ * Escreve o nome e a idade por cima da arte.
+ *
+ * Antes esses dois campos só alimentavam o texto do prompt de IA — quem
+ * gerava a imagem num gerador já recebia a arte com o nome dentro. Mas quando
+ * a arte vem de uma foto que o cliente mandou, não havia nome nenhum: os
+ * campos ficavam preenchidos na tela e não saíam no papel.
+ *
+ * As medidas são proporcionais à largura da arte, e não fixas: a mesma peça
+ * sai num topo de 20 cm e numa tag de 5 cm, e um tamanho em pontos que serve
+ * pra um fica ilegível ou gigante no outro.
+ *
+ * O contorno é feito com sombra em oito direções em vez de -webkit-text-stroke
+ * porque sombra imprime igual em todo navegador — e sem contorno o texto some
+ * quando a foto por baixo é da mesma cor.
+ */
+function TextoNaArte({
+  nome,
+  idade,
+  posicao,
+  cor,
+  largura,
+  unidade,
+}: {
+  nome: string;
+  idade: string;
+  posicao: PosicaoTexto;
+  cor: CorTexto;
+  largura: number;
+  unidade: "mm" | "px";
+}) {
+  const temNome = nome.trim().length > 0;
+  const temIdade = idade.trim().length > 0;
+  if (posicao === "nenhum" || (!temNome && !temIdade)) return null;
+
+  const u = (v: number) => `${v}${unidade}`;
+  const tamanhoNome = largura * 0.12;
+  const tamanhoIdade = largura * 0.085;
+  const contorno = largura * 0.006;
+  const corTexto = cor === "branco" ? "#ffffff" : "#111111";
+  const corContorno = cor === "branco" ? "#000000" : "#ffffff";
+
+  const sombra = [
+    [1, 0], [-1, 0], [0, 1], [0, -1],
+    [1, 1], [1, -1], [-1, 1], [-1, -1],
+  ]
+    .map(([x, y]) => `${u(x * contorno)} ${u(y * contorno)} 0 ${corContorno}`)
+    .join(", ");
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        // Numa peça redonda o texto encostado na borda é o primeiro a ser
+        // perdido no recorte — daí a margem generosa.
+        [posicao === "embaixo" ? "bottom" : "top"]: u(largura * 0.1),
+        textAlign: "center",
+        color: corTexto,
+        textShadow: sombra,
+        lineHeight: 1.05,
+        padding: `0 ${u(largura * 0.08)}`,
+        pointerEvents: "none",
+      }}
+    >
+      {temNome && (
+        <div style={{ fontSize: u(tamanhoNome), fontWeight: 800 }}>{nome}</div>
+      )}
+      {temIdade && (
+        <div style={{ fontSize: u(tamanhoIdade), fontWeight: 700 }}>
+          {/* Só acrescenta "anos" quando a idade é mesmo um número. Quem
+              escreve "1 aninho" ou "Bodas de prata" não quer virar
+              "1 aninho anos". */}
+          {/^\d+$/.test(idade.trim()) ? `${idade.trim()} anos` : idade.trim()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PreviaFolha({
   modo,
   imagem,
@@ -723,6 +891,10 @@ function PreviaFolha({
   medidaTopo,
   formato,
   layoutTags,
+  nome,
+  idade,
+  posicaoTexto,
+  corTexto,
 }: {
   modo: Modo;
   imagem: string;
@@ -730,6 +902,10 @@ function PreviaFolha({
   medidaTopo: { larguraMm: number; alturaMm: number };
   formato: Formato;
   layoutTags: ReturnType<typeof calcularLayoutTags>;
+  nome: string;
+  idade: string;
+  posicaoTexto: PosicaoTexto;
+  corTexto: CorTexto;
 }) {
   // A prévia é a folha inteira reduzida: tudo que está em mm vira pixel
   // multiplicado pela mesma escala, então o que se vê é fiel à proporção.
@@ -751,6 +927,7 @@ function PreviaFolha({
       >
         <div
           style={{
+            position: "relative",
             width: mm(medidaTopo.larguraMm),
             height: mm(medidaTopo.alturaMm),
             borderRadius: formato === "redondo" ? "50%" : 2,
@@ -762,6 +939,14 @@ function PreviaFolha({
             src={imagem}
             alt=""
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <TextoNaArte
+            nome={nome}
+            idade={idade}
+            posicao={posicaoTexto}
+            cor={corTexto}
+            largura={mm(medidaTopo.larguraMm)}
+            unidade="px"
           />
         </div>
       </div>
@@ -783,6 +968,7 @@ function PreviaFolha({
         <div
           key={i}
           style={{
+            position: "relative",
             width: mm(layoutTags.diametroMm),
             height: mm(layoutTags.diametroMm),
             borderRadius: "50%",
@@ -794,6 +980,14 @@ function PreviaFolha({
             src={imagem}
             alt=""
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+          <TextoNaArte
+            nome={nome}
+            idade={idade}
+            posicao={posicaoTexto}
+            cor={corTexto}
+            largura={mm(layoutTags.diametroMm)}
+            unidade="px"
           />
         </div>
       ))}

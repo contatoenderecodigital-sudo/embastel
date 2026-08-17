@@ -16,9 +16,15 @@ export type Periodicidade = "semanal" | "quinzenal";
 // 129 itens obriga cada um a garimpar os seus no meio dos do outro, andando
 // pelo depósito fora de ordem.
 //
-// Fica como texto livre, e não como lista fechada de duas pessoas: quem
-// confere muda (férias, alguém novo, o dono fazendo no sábado), e uma lista
-// fixa no código viraria pedido de alteração toda vez.
+// São só estes dois, escolhidos numa lista — não é campo de digitar. Digitar
+// o nome 129 vezes acabaria com "Valdecir", "valdecir" e "Valdecír" na base, e
+// o filtro compara texto exato: cada grafia viraria uma pessoa diferente, com
+// a lista dele partida em três.
+//
+// Pra incluir mais alguém depois, basta acrescentar aqui — a tela monta os
+// botões e os menus a partir desta lista.
+export const RESPONSAVEIS = ["Eli", "Valdecir"] as const;
+
 export type ItemConferencia = {
   id: string;
   codigo: string;
@@ -117,20 +123,27 @@ export async function listItens(): Promise<ItemConferencia[]> {
     .sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
 }
 
-/** Nomes e locais já usados, pra virarem sugestão em vez de digitação. */
-export async function listResponsaveisELocais(): Promise<{
-  responsaveis: string[];
-  locais: string[];
-}> {
+/**
+ * Só aceita nome que está na lista. Vazio significa "sem dono" e é válido.
+ *
+ * A tela já oferece um menu fechado, mas a rota da API é pública pra quem
+ * está logado — sem esta checagem, uma chamada errada plantaria um terceiro
+ * nome na base e partiria a lista de alguém sem ninguém entender por quê.
+ */
+function responsavelValido(nome: string): string {
+  const limpo = nome.trim();
+  if (!limpo) return "";
+  return (RESPONSAVEIS as readonly string[]).includes(limpo) ? limpo : "";
+}
+
+/** Locais já usados, pra virarem sugestão em vez de digitação. */
+export async function listLocais(): Promise<string[]> {
   const data = await store.read();
-  const responsaveis = new Set<string>();
   const locais = new Set<string>();
   for (const item of data.itens) {
-    if (item.responsavel) responsaveis.add(item.responsavel);
     if (item.local) locais.add(item.local);
   }
-  const ordenar = (s: Set<string>) => [...s].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  return { responsaveis: ordenar(responsaveis), locais: ordenar(locais) };
+  return [...locais].sort((a, b) => a.localeCompare(b, "pt-BR"));
 }
 
 export async function addItem(input: {
@@ -147,7 +160,7 @@ export async function addItem(input: {
       codigo: input.codigo?.trim() || "",
       descricao: input.descricao.trim(),
       periodicidade: input.periodicidade,
-      responsavel: input.responsavel?.trim() || "",
+      responsavel: responsavelValido(input.responsavel ?? ""),
       local: input.local?.trim() || "",
       quantidadeIdeal: input.quantidadeIdeal ?? null,
       ultimaContagem: null,
@@ -179,9 +192,9 @@ export async function updateItem(
     const item = data.itens.find((i) => i.id === id);
     if (!item) return null;
     for (const [chave, valor] of Object.entries(patch)) {
-      if (valor !== undefined) {
-        (item as Record<string, unknown>)[chave] = valor;
-      }
+      if (valor === undefined) continue;
+      (item as Record<string, unknown>)[chave] =
+        chave === "responsavel" ? responsavelValido(String(valor)) : valor;
     }
     return item;
   });
@@ -209,7 +222,7 @@ export async function atribuirEmLote(input: {
     for (const item of data.itens) {
       if (!alvo.has(item.id)) continue;
       if (input.responsavel !== undefined) {
-        item.responsavel = input.responsavel?.trim() || "";
+        item.responsavel = responsavelValido(input.responsavel ?? "");
       }
       if (input.local !== undefined) {
         item.local = input.local?.trim() || "";

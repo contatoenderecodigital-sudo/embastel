@@ -5,7 +5,8 @@ import {
   estaVencido,
   listConferencias,
   listItens,
-  listResponsaveisELocais,
+  listLocais,
+  RESPONSAVEIS,
   salvarConferencia,
   type Periodicidade,
 } from "@/lib/conferenciaDb";
@@ -13,17 +14,21 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [itens, conferencias, sugestoes] = await Promise.all([
+  const [itens, conferencias, locais] = await Promise.all([
     listItens(),
     listConferencias(),
-    listResponsaveisELocais(),
+    listLocais(),
   ]);
   const agora = Date.now();
   const ativos = itens.filter((i) => i.ativo);
 
   // Quantos itens vencidos cada pessoa tem hoje — é o número que ela quer ver
   // ao chegar, antes de sair andando pelo depósito.
-  const porResponsavel = new Map<string, { total: number; vencidos: number }>();
+  // Começa com as duas pessoas zeradas: os botões de filtro precisam aparecer
+  // já na primeira vez, antes de qualquer item ter dono.
+  const porResponsavel = new Map<string, { total: number; vencidos: number }>(
+    RESPONSAVEIS.map((nome) => [nome, { total: 0, vencidos: 0 }])
+  );
   for (const item of ativos) {
     const chave = item.responsavel || "";
     const atual = porResponsavel.get(chave) ?? { total: 0, vencidos: 0 };
@@ -35,8 +40,8 @@ export async function GET() {
   return NextResponse.json({
     itens: itens.map((item) => ({ ...item, vencido: estaVencido(item, agora) })),
     conferencias: conferencias.slice(0, 20),
-    responsaveis: sugestoes.responsaveis,
-    locais: sugestoes.locais,
+    responsaveis: [...RESPONSAVEIS],
+    locais,
     porResponsavel: [...porResponsavel.entries()]
       .map(([nome, v]) => ({ nome, ...v }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),

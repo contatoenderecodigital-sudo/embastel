@@ -30,6 +30,11 @@ export type ArtePapelArroz = {
   tema: string | null;
   nome: string | null;
   idade: string | null;
+  // Onde o nome sai escrito na arte, e em que cor. Guardado junto porque a
+  // galeria existe pra reimprimir igualzinho — sem isso, uma arte salva com
+  // o nome embaixo em branco voltaria com o padrão e sairia diferente.
+  posicaoTexto: "embaixo" | "emcima" | "nenhum";
+  corTexto: "branco" | "preto";
   descricao: string | null;
   // Extensão do arquivo guardado (png, jpg...).
   extensao: string;
@@ -52,7 +57,15 @@ function caminhoImagem(id: string, extensao: string) {
 
 export async function listArtes(): Promise<ArtePapelArroz[]> {
   const data = await store.read();
-  return [...data.artes].sort((a, b) => b.usadoEm.localeCompare(a.usadoEm));
+  // Artes guardadas antes destes dois campos existirem voltam com o padrão,
+  // que é como elas foram impressas na época.
+  return [...data.artes]
+    .map((arte) => ({
+      ...arte,
+      posicaoTexto: arte.posicaoTexto ?? ("embaixo" as const),
+      corTexto: arte.corTexto ?? ("branco" as const),
+    }))
+    .sort((a, b) => b.usadoEm.localeCompare(a.usadoEm));
 }
 
 /** Lê o arquivo da imagem. Null se a arte não existe ou o arquivo sumiu. */
@@ -81,6 +94,8 @@ export async function salvarArte(input: {
   tema?: string | null;
   nome?: string | null;
   idade?: string | null;
+  posicaoTexto?: "embaixo" | "emcima" | "nenhum";
+  corTexto?: "branco" | "preto";
   descricao?: string | null;
   // Data URL vinda da tela ("data:image/png;base64,....").
   imagemDataUrl: string;
@@ -112,6 +127,8 @@ export async function salvarArte(input: {
       tema: input.tema ?? null,
       nome: input.nome ?? null,
       idade: input.idade ?? null,
+      posicaoTexto: input.posicaoTexto ?? "embaixo",
+      corTexto: input.corTexto ?? "branco",
       descricao: input.descricao ?? null,
       extensao,
       bytes: buffer.length,

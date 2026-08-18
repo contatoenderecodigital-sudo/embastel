@@ -196,6 +196,14 @@ export type CursorColeta = {
    * PNCP.
    */
   falhasSeguidas: number;
+  /**
+   * Falhas seguidas na rodada inteira, zeradas só quando uma página vem boa.
+   *
+   * Diferente de `falhasSeguidas`, que zera ao trocar de bloco: esta conta o
+   * quadro geral. Muitas seguidas, sem nenhuma leitura boa em bloco nenhum,
+   * significa que a API do PNCP está fora do ar e não adianta insistir.
+   */
+  falhasSemSucesso: number;
 };
 
 export type ColetaStatus = {

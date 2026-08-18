@@ -47,6 +47,19 @@ const MAX_PAGINAS_POR_CONSULTA = 400;
  */
 const MAX_FALHAS_SEGUIDAS = 3;
 
+/**
+ * Quantas falhas seguidas, sem UMA página boa em bloco nenhum, bastam pra
+ * concluir que a API do PNCP está fora do ar e encerrar a rodada.
+ *
+ * A primeira versão disso encerrava a rodada quando uma FATIA de 30s passava
+ * sem página boa. Ficou agressivo demais: uma única página lenta no começo de
+ * uma fatia derrubava a coleta inteira — medido em 18/08/2026, a varredura
+ * parou na página 9 de ~530 com a mensagem "não respondeu nenhuma das 1
+ * páginas desta fatia". Quinze falhas seguidas são uns cinco minutos sem nada,
+ * aí sim é o serviço, e não azar.
+ */
+const MAX_FALHAS_SEM_SUCESSO = 15;
+
 // Uma licitação com o prazo vencido não serve pra disputar, mas fica mais dois
 // dias no índice pra não sumir da tela no mesmo instante em que fecha.
 const CARENCIA_APOS_PRAZO_MS = 2 * 24 * 60 * 60 * 1000;
@@ -153,6 +166,7 @@ async function montarCursor(): Promise<CursorColeta> {
     novas: [],
     falhas: 0,
     falhasSeguidas: 0,
+    falhasSemSucesso: 0,
   };
 }
 
@@ -180,9 +194,11 @@ async function faseLendoPncp(
   let registrosLidos = status.registrosLidos;
   let varreduraTerminou = false;
   // Cursor antigo (gravado antes deste campo existir) começa do zero.
-  cursor = { ...cursor, falhasSeguidas: cursor.falhasSeguidas ?? 0 };
-  let paginasBoasNestaFatia = 0;
-  let falhasNestaFatia = 0;
+  cursor = {
+    ...cursor,
+    falhasSeguidas: cursor.falhasSeguidas ?? 0,
+    falhasSemSucesso: cursor.falhasSemSucesso ?? 0,
+  };
 
   while (!varreduraTerminou && Date.now() + MARGEM_PAGINA_MS < prazoFinal) {
     const uf = cursor.ufs[cursor.ufIdx] ?? undefined;
@@ -225,14 +241,20 @@ async function faseLendoPncp(
       console.warn(
         `[coleta] pulando ${contexto}: ${erro instanceof Error ? erro.message : erro}`
       );
-      falhasNestaFatia += 1;
       const comFalha = {
         ...cursor,
         falhas: cursor.falhas + 1,
         falhasSeguidas: cursor.falhasSeguidas + 1,
+        falhasSemSucesso: (cursor.falhasSemSucesso ?? 0) + 1,
       };
 
-      if (comFalha.falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
+      if (comFalha.falhasSemSucesso >= MAX_FALHAS_SEM_SUCESSO) {
+        console.warn(
+          `[coleta] ${comFalha.falhasSemSucesso} falhas seguidas sem nenhuma página boa; a API do PNCP parece fora do ar. Encerrando a rodada.`
+        );
+        cursor = comFalha;
+        varreduraTerminou = true;
+      } else if (comFalha.falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
         const proxima = proximaConsulta(comFalha);
         cursor = proxima
           ? { ...proxima, falhasSeguidas: 0 }
@@ -246,8 +268,7 @@ async function faseLendoPncp(
       continue;
     }
 
-    cursor = { ...cursor, falhasSeguidas: 0 };
-    paginasBoasNestaFatia += 1;
+    cursor = { ...cursor, falhasSeguidas: 0, falhasSemSucesso: 0 };
 
     // Guarda o total assim que ele for conhecido, e não só na página 1: se a
     // primeira página do bloco tiver falhado, o total continuaria zerado e o
@@ -283,17 +304,6 @@ async function faseLendoPncp(
     }
 
     await sleep(INTERVALO_ENTRE_PAGINAS_MS);
-  }
-
-  // Uma fatia inteira sem UMA página boa significa que o PNCP não está
-  // atendendo agora. Insistir pelas outras 199 fatias não muda nada, demora
-  // uma hora e meia e ainda castiga um serviço público que já está sofrendo —
-  // melhor encerrar a rodada e deixar pra próxima, daqui a algumas horas.
-  if (paginasBoasNestaFatia === 0 && falhasNestaFatia > 0) {
-    console.warn(
-      `[coleta] o PNCP não respondeu nenhuma das ${falhasNestaFatia} páginas desta fatia; encerrando a rodada.`
-    );
-    varreduraTerminou = true;
   }
 
   // Grava tudo que foi lido nesta chamada de uma vez só.

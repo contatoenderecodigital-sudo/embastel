@@ -42,10 +42,14 @@ const MAX_PAGINAS_POR_CONSULTA = 400;
 
 /**
  * Quantas páginas seguidas podem falhar antes de desistir do bloco (um par
- * UF × modalidade). Três distingue uma página problemática — que se pula — de
- * um bloco ou serviço fora do ar, em que insistir só gasta o orçamento.
+ * UF × modalidade).
+ *
+ * Era 3, e ficou apertado: medido em 18/08/2026, das 500 páginas disponíveis
+ * a coleta leu 220. O bloco RS/dispensa sozinho tem 183 páginas — três
+ * tropeços no meio dele descartavam o resto. Oito é uma sequência que já não
+ * se explica por lentidão pontual.
  */
-const MAX_FALHAS_SEGUIDAS = 3;
+const MAX_FALHAS_SEGUIDAS = 8;
 
 /**
  * Quantas falhas seguidas, sem UMA página boa em bloco nenhum, bastam pra
@@ -528,7 +532,13 @@ export async function coletarAteOFim(): Promise<ColetaStatus> {
   // Teto de segurança: 200 fatias de 30s é mais que suficiente pra qualquer
   // varredura, e impede laço infinito se alguma fase parar de avançar.
   for (let i = 0; i < 200; i++) {
-    status = await avancarColeta(30_000);
+    // Fatias de 90s, e não de 30s. O número antigo vinha de quando a ideia era
+    // publicar em serverless, onde a função morre por volta de 60s. Aqui o
+    // processo vive o tempo que precisar, e fatia curta demais atrapalha: com
+    // o PNCP levando de 6 a 10 segundos por página, uma fatia de 30s não
+    // comporta a página mais a tentativa de novo, e o que seria um tropeço
+    // virava falha.
+    status = await avancarColeta(90_000);
     if (!status.rodando) break;
   }
   return status;

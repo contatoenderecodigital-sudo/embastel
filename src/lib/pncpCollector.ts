@@ -152,6 +152,7 @@ async function montarCursor(): Promise<CursorColeta> {
     dataFinal: formatPncpDate(hoje),
     novas: [],
     falhas: 0,
+    falhasSeguidas: 0,
   };
 }
 
@@ -178,7 +179,10 @@ async function faseLendoPncp(
   let paginasLidas = status.paginasLidas;
   let registrosLidos = status.registrosLidos;
   let varreduraTerminou = false;
-  let falhasSeguidas = 0;
+  // Cursor antigo (gravado antes deste campo existir) começa do zero.
+  cursor = { ...cursor, falhasSeguidas: cursor.falhasSeguidas ?? 0 };
+  let paginasBoasNestaFatia = 0;
+  let falhasNestaFatia = 0;
 
   while (!varreduraTerminou && Date.now() + MARGEM_PAGINA_MS < prazoFinal) {
     const uf = cursor.ufs[cursor.ufIdx] ?? undefined;
@@ -221,13 +225,18 @@ async function faseLendoPncp(
       console.warn(
         `[coleta] pulando ${contexto}: ${erro instanceof Error ? erro.message : erro}`
       );
-      falhasSeguidas += 1;
-      const comFalha = { ...cursor, falhas: cursor.falhas + 1 };
+      falhasNestaFatia += 1;
+      const comFalha = {
+        ...cursor,
+        falhas: cursor.falhas + 1,
+        falhasSeguidas: cursor.falhasSeguidas + 1,
+      };
 
-      if (falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
-        falhasSeguidas = 0;
+      if (comFalha.falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
         const proxima = proximaConsulta(comFalha);
-        cursor = proxima ?? comFalha;
+        cursor = proxima
+          ? { ...proxima, falhasSeguidas: 0 }
+          : { ...comFalha, falhasSeguidas: 0 };
         if (!proxima) varreduraTerminou = true;
       } else {
         cursor = { ...comFalha, pagina: comFalha.pagina + 1 };
@@ -237,7 +246,8 @@ async function faseLendoPncp(
       continue;
     }
 
-    falhasSeguidas = 0;
+    cursor = { ...cursor, falhasSeguidas: 0 };
+    paginasBoasNestaFatia += 1;
 
     // Guarda o total assim que ele for conhecido, e não só na página 1: se a
     // primeira página do bloco tiver falhado, o total continuaria zerado e o
@@ -273,6 +283,17 @@ async function faseLendoPncp(
     }
 
     await sleep(INTERVALO_ENTRE_PAGINAS_MS);
+  }
+
+  // Uma fatia inteira sem UMA página boa significa que o PNCP não está
+  // atendendo agora. Insistir pelas outras 199 fatias não muda nada, demora
+  // uma hora e meia e ainda castiga um serviço público que já está sofrendo —
+  // melhor encerrar a rodada e deixar pra próxima, daqui a algumas horas.
+  if (paginasBoasNestaFatia === 0 && falhasNestaFatia > 0) {
+    console.warn(
+      `[coleta] o PNCP não respondeu nenhuma das ${falhasNestaFatia} páginas desta fatia; encerrando a rodada.`
+    );
+    varreduraTerminou = true;
   }
 
   // Grava tudo que foi lido nesta chamada de uma vez só.
@@ -413,9 +434,12 @@ async function finalizar(): Promise<void> {
     novasNaUltimaColeta: interessantes.length,
     cidadesPendentes: 0,
     erro: !leuAlgo
-      ? "O PNCP recusou todas as consultas desta rodada (costuma ser limite de uso temporário). O índice anterior foi mantido e a próxima rodada tenta de novo."
+      ? "O PNCP não respondeu nenhuma consulta desta rodada — em geral é a API deles fora do ar, e não algo do painel. O índice anterior foi mantido e a próxima rodada tenta de novo."
       : status.cursor?.falhas
-        ? `O PNCP recusou ${status.cursor.falhas} bloco(s) de páginas. O índice foi salvo com o resto — a próxima coleta tenta de novo.`
+        ? // Página, e não "bloco": desde 18/08/2026 uma recusa isolada faz
+          // pular só aquela página. Dizer "bloco" dava a impressão de um
+          // buraco muito maior do que o real.
+          `O PNCP não respondeu ${status.cursor.falhas} página(s). O resto foi salvo — a próxima coleta tenta de novo.`
         : null,
   });
 

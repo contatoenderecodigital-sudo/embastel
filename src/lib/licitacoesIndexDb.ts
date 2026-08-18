@@ -185,6 +185,17 @@ export type CursorColeta = {
   // triagem por IA e para os avisos de "licitação nova".
   novas: string[];
   falhas: number;
+  /**
+   * Falhas seguidas, sem nenhuma página boa no meio.
+   *
+   * Fica no cursor, e não numa variável da função, porque a coleta trabalha em
+   * fatias de 30 segundos: quando o PNCP está fora do ar, uma fatia inteira se
+   * gasta em uma ou duas páginas que expiram. Um contador local zeraria a cada
+   * fatia e nunca chegaria ao limite de desistir — a coleta ficaria girando na
+   * mesma página por horas. Aconteceu em 18/08/2026, num apagão da API do
+   * PNCP.
+   */
+  falhasSeguidas: number;
 };
 
 export type ColetaStatus = {

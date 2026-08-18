@@ -165,6 +165,38 @@ export default function LicitacoesPage() {
   const [arrastado, setArrastado] = useState<string | null>(null);
   const [colunaAlvo, setColunaAlvo] = useState<LicitacaoStatus | null>(null);
 
+  // "Quem cota isso": fornecedores cujas categorias batem com o objeto do
+  // edital. Um card por vez — a lista abre embaixo do card clicado.
+  const [cotacao, setCotacao] = useState<{
+    numero: string;
+    carregando: boolean;
+    lista: Array<{
+      fornecedor: { id: string; nome: string; telefone: string };
+      categoriasQueBatem: string[];
+    }>;
+  } | null>(null);
+
+  async function quemCota(item: TrackedLicitacao) {
+    if (cotacao?.numero === item.numeroControlePNCP) {
+      setCotacao(null);
+      return;
+    }
+    setCotacao({ numero: item.numeroControlePNCP, carregando: true, lista: [] });
+    try {
+      const res = await fetch(
+        `/api/fornecedores?para=${encodeURIComponent(item.objeto)}`
+      );
+      const dados = await res.json();
+      setCotacao({
+        numero: item.numeroControlePNCP,
+        carregando: false,
+        lista: dados.atendem ?? [],
+      });
+    } catch {
+      setCotacao({ numero: item.numeroControlePNCP, carregando: false, lista: [] });
+    }
+  }
+
   async function soltarNaColuna(destino: LicitacaoStatus) {
     const numero = arrastado;
     setArrastado(null);
@@ -1116,12 +1148,71 @@ export default function LicitacoesPage() {
                                       : "Resumir c/ IA"}
                                 </button>
                                 <button
+                                  onClick={() => quemCota(item)}
+                                  className="text-neutral-500 hover:text-brand"
+                                >
+                                  Quem cota
+                                </button>
+                                <button
                                   onClick={() => handleUntrack(item.numeroControlePNCP)}
                                   className="ml-auto text-neutral-400 hover:text-red-600"
                                 >
                                   Remover
                                 </button>
                               </div>
+
+                              {/* Fornecedores que atendem o objeto deste
+                                  edital, pra pedir cotação sem sair da tela. */}
+                              {cotacao?.numero === item.numeroControlePNCP && (
+                                <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                                  {cotacao.carregando ? (
+                                    <p className="text-[10.5px] text-neutral-500">
+                                      Procurando…
+                                    </p>
+                                  ) : cotacao.lista.length === 0 ? (
+                                    <p className="text-[10.5px] text-neutral-500">
+                                      Nenhum fornecedor cadastrado atende isso.
+                                      Marque as categorias deles em Fornecedores.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-1.5">
+                                      {cotacao.lista.map((a) => (
+                                        <div
+                                          key={a.fornecedor.id}
+                                          className="flex items-center gap-2"
+                                        >
+                                          <div className="min-w-0 flex-1">
+                                            <div className="truncate text-[11px] font-semibold text-neutral-800">
+                                              {a.fornecedor.nome}
+                                            </div>
+                                            <div className="truncate text-[10px] text-neutral-500">
+                                              {a.categoriasQueBatem.join(", ")}
+                                            </div>
+                                          </div>
+                                          {a.fornecedor.telefone ? (
+                                            <a
+                                              href={`https://wa.me/${
+                                                a.fornecedor.telefone.startsWith("55")
+                                                  ? a.fornecedor.telefone
+                                                  : `55${a.fornecedor.telefone}`
+                                              }`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="shrink-0 rounded border border-[#25D366]/40 bg-[#25D366]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#128C7E]"
+                                            >
+                                              Cotar
+                                            </a>
+                                          ) : (
+                                            <span className="shrink-0 text-[10px] text-neutral-400">
+                                              sem telefone
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}

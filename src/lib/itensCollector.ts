@@ -235,21 +235,3 @@ export async function avancarVarredura(orcamentoMs = 45_000): Promise<ResultadoR
     return { visitadas, itensNovos, restantes, concluida: false, erro: mensagem };
   }
 }
-
-let temporizador: ReturnType<typeof setInterval> | null = null;
-
-/**
- * Liga a varredura em segundo plano. Roda uma fatia a cada 5 minutos — ritmo
- * que varre o índice inteiro em algumas horas sem pesar no PNCP.
- */
-export function iniciarVarredorDeItens(): void {
-  if (temporizador) return;
-  const rodar = () => {
-    avancarVarredura(60_000).catch((erro) =>
-      console.error("[itens] varredura falhou:", erro)
-    );
-  };
-  // Espera o servidor terminar de subir antes da primeira rodada.
-  setTimeout(rodar, 60_000);
-  temporizador = setInterval(rodar, 5 * 60 * 1000);
-}

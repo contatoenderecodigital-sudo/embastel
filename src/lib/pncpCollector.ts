@@ -40,6 +40,13 @@ import { triagemDisponivel, triarLicitacoes } from "./triagemIA";
 const INTERVALO_ENTRE_PAGINAS_MS = 400;
 const MAX_PAGINAS_POR_CONSULTA = 400;
 
+/**
+ * Quantas páginas seguidas podem falhar antes de desistir do bloco (um par
+ * UF × modalidade). Três distingue uma página problemática — que se pula — de
+ * um bloco ou serviço fora do ar, em que insistir só gasta o orçamento.
+ */
+const MAX_FALHAS_SEGUIDAS = 3;
+
 // Uma licitação com o prazo vencido não serve pra disputar, mas fica mais dois
 // dias no índice pra não sumir da tela no mesmo instante em que fecha.
 const CARENCIA_APOS_PRAZO_MS = 2 * 24 * 60 * 60 * 1000;
@@ -171,6 +178,7 @@ async function faseLendoPncp(
   let paginasLidas = status.paginasLidas;
   let registrosLidos = status.registrosLidos;
   let varreduraTerminou = false;
+  let falhasSeguidas = 0;
 
   while (!varreduraTerminou && Date.now() + MARGEM_PAGINA_MS < prazoFinal) {
     const uf = cursor.ufs[cursor.ufIdx] ?? undefined;
@@ -198,19 +206,43 @@ async function faseLendoPncp(
         }
       );
     } catch (erro) {
-      // Uma consulta que o PNCP recusou mesmo depois do backoff não pode
-      // derrubar a varredura inteira: anota, pula pro próximo bloco e segue.
+      // UMA PÁGINA QUE FALHA NÃO ENCERRA O BLOCO.
+      //
+      // Antes, qualquer recusa do PNCP mandava o cursor pro próximo par
+      // UF × modalidade. O efeito foi medido em 18/08/2026: dos ~530 páginas
+      // que os seis blocos têm num mês, a coleta leu 74 — cada bloco era
+      // abandonado na primeira página recusada, e o painel ficava com uma
+      // fração do que existe sem ninguém perceber (o aviso só dizia
+      // "recusou 6 blocos").
+      //
+      // Agora pula só a página. Depois de várias recusas seguidas — sinal de
+      // que o problema é o bloco ou o PNCP inteiro, não uma página — aí sim
+      // desiste do bloco.
       console.warn(
         `[coleta] pulando ${contexto}: ${erro instanceof Error ? erro.message : erro}`
       );
+      falhasSeguidas += 1;
       const comFalha = { ...cursor, falhas: cursor.falhas + 1 };
-      const proxima = proximaConsulta(comFalha);
-      cursor = proxima ?? comFalha;
-      if (!proxima) varreduraTerminou = true;
+
+      if (falhasSeguidas >= MAX_FALHAS_SEGUIDAS) {
+        falhasSeguidas = 0;
+        const proxima = proximaConsulta(comFalha);
+        cursor = proxima ?? comFalha;
+        if (!proxima) varreduraTerminou = true;
+      } else {
+        cursor = { ...comFalha, pagina: comFalha.pagina + 1 };
+      }
+
+      await sleep(INTERVALO_ENTRE_PAGINAS_MS);
       continue;
     }
 
-    if (cursor.pagina === 1) {
+    falhasSeguidas = 0;
+
+    // Guarda o total assim que ele for conhecido, e não só na página 1: se a
+    // primeira página do bloco tiver falhado, o total continuaria zerado e o
+    // bloco terminaria na página seguinte por engano.
+    if (cursor.totalPaginasDaConsulta === 0) {
       cursor = { ...cursor, totalPaginasDaConsulta: json.totalPaginas || 0 };
     }
 
@@ -224,7 +256,9 @@ async function faseLendoPncp(
 
     const acabouEstaConsulta =
       json.empty ||
-      cursor.pagina >= cursor.totalPaginasDaConsulta ||
+      // Total zero significa "ainda não sei", não "acabou".
+      (cursor.totalPaginasDaConsulta > 0 &&
+        cursor.pagina >= cursor.totalPaginasDaConsulta) ||
       cursor.pagina >= MAX_PAGINAS_POR_CONSULTA;
 
     if (acabouEstaConsulta) {

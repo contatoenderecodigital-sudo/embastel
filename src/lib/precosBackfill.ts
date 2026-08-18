@@ -384,22 +384,3 @@ export async function avancarBackfill(orcamentoMs = 45_000): Promise<RodadaBackf
     };
   }
 }
-
-let temporizador: ReturnType<typeof setInterval> | null = null;
-
-/**
- * Roda o histórico em segundo plano, a cada 10 minutos, até chegar aos 12
- * meses. Depois disso ele para sozinho — histórico velho não muda.
- */
-export function iniciarBuscaDeHistorico(): void {
-  if (temporizador) return;
-  const rodar = async () => {
-    const status = await lerStatusBackfill().catch(() => null);
-    if (status?.concluido) return;
-    avancarBackfill(60_000).catch((erro) =>
-      console.error("[histórico] falhou:", erro)
-    );
-  };
-  setTimeout(rodar, 120_000);
-  temporizador = setInterval(rodar, 10 * 60 * 1000);
-}

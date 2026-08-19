@@ -447,13 +447,21 @@ async function finalizar(): Promise<void> {
     itensNoIndice: indice.items.length,
     novasNaUltimaColeta: interessantes.length,
     cidadesPendentes: 0,
-    erro: !leuAlgo
-      ? "O PNCP não respondeu nenhuma consulta desta rodada — em geral é a API deles fora do ar, e não algo do painel. O índice anterior foi mantido e a próxima rodada tenta de novo."
-      : status.cursor?.falhas
+    // Erro é só quando a rodada não trouxe nada. Página recusada no meio de
+    // uma varredura que leu o resto é rotina — o PNCP recusa algumas dezenas
+    // de páginas em quase toda rodada — e vai pro aviso, não pro erro. As duas
+    // coisas moravam no mesmo campo, e a tela mostrava "Última coleta falhou:
+    // o PNCP não respondeu 28 páginas" em vermelho depois de uma coleta que
+    // tinha salvado 22 mil licitações.
+    erro: leuAlgo
+      ? null
+      : "O PNCP não respondeu nenhuma consulta desta rodada — em geral é a API deles fora do ar, e não algo do painel. O índice anterior foi mantido e a próxima rodada tenta de novo.",
+    aviso:
+      leuAlgo && status.cursor?.falhas
         ? // Página, e não "bloco": desde 18/08/2026 uma recusa isolada faz
           // pular só aquela página. Dizer "bloco" dava a impressão de um
           // buraco muito maior do que o real.
-          `O PNCP não respondeu ${status.cursor.falhas} página(s). O resto foi salvo — a próxima coleta tenta de novo.`
+          `O PNCP recusou ${status.cursor.falhas} página(s) desta varredura. O resto entrou normalmente, e a próxima coleta busca essas de novo.`
         : null,
   });
 

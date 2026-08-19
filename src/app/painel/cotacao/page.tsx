@@ -99,7 +99,6 @@ export default function CotacaoPage() {
   const [form, setForm] = useState<Form | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
   const [novaCategoria, setNovaCategoria] = useState("");
 
   const carregar = useCallback(async () => {
@@ -220,30 +219,6 @@ export default function CotacaoPage() {
   async function excluir(f: FornecedorLicitacao) {
     if (!confirm(`Apagar "${f.nome}" da agenda de licitação?`)) return;
     await fetch(`/api/fornecedores-licitacao/${f.id}`, { method: "DELETE" });
-    await carregar();
-  }
-
-  async function importar() {
-    if (
-      !confirm(
-        "Trazer os fornecedores da lista da loja pra cá?\n\n" +
-          "Copia só nome, telefone e categorias. Se ele fatura pra prefeitura, " +
-          "prazo e pagamento entram como “não sei” — isso você confirma com cada um."
-      )
-    )
-      return;
-    setAviso(null);
-    const res = await fetch("/api/fornecedores-licitacao", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "importar-da-loja" }),
-    });
-    const { importados } = await res.json();
-    setAviso(
-      importados
-        ? `${importados} fornecedor(es) trazido(s) da loja. Agora confirme com cada um se fatura pra órgão público.`
-        : "Nenhum novo — todos os da loja já estão aqui."
-    );
     await carregar();
   }
 
@@ -530,10 +505,10 @@ export default function CotacaoPage() {
           Fornecedores de licitação
         </h1>
         <p className="mt-1 text-sm text-neutral-600">
-          Quem dá pra colocar numa proposta. Não é a lista da loja: aqui interessa
-          se ele fatura pra prefeitura, em quantos dias entrega, como cobra e se
-          responde cotação. É esta lista que o botão &quot;Quem cota&quot; do
-          edital consulta.
+          Quem dá pra colocar numa proposta pra prefeitura. Lista própria, sem
+          relação com a da loja: o que importa aqui é se ele fatura pra órgão
+          público, em quantos dias entrega, como cobra e se responde cotação. É
+          esta lista que o botão &quot;Quem cota&quot; do edital consulta.
         </p>
       </header>
 
@@ -542,12 +517,6 @@ export default function CotacaoPage() {
           {erro}
         </div>
       )}
-      {aviso && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          {aviso}
-        </div>
-      )}
-
       {/* --------------------------------------------------------- resumo -- */}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -598,13 +567,6 @@ export default function CotacaoPage() {
           className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
         >
           {form?.id === null ? "Fechar formulário" : "Cadastrar fornecedor"}
-        </button>
-        <button
-          onClick={importar}
-          title="Copia os fornecedores da agenda da loja pra cá"
-          className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-        >
-          Trazer da lista da loja
         </button>
         <input
           value={busca}
@@ -669,9 +631,8 @@ export default function CotacaoPage() {
             Nenhum fornecedor de licitação ainda.
           </p>
           <p className="mx-auto mt-1 max-w-lg text-[12.5px] text-neutral-500">
-            Comece trazendo os da lista da loja — depois é só ligar pra cada um e
-            confirmar se fatura pra prefeitura, em quantos dias entrega e como
-            cobra.
+            Cadastre quem cota pra prefeitura: telefone, o que ele fornece, em
+            quantos dias entrega e como cobra.
           </p>
         </div>
       ) : filtrados.length === 0 ? (

@@ -215,7 +215,17 @@ export type ColetaStatus = {
   // `rodando: true` no arquivo é de uma coleta viva ou de uma que morreu no
   // meio (servidor derrubado, por exemplo).
   ultimoSinalEm: number | null;
+  /** A rodada não trouxe nada. Vermelho na tela — exige olhar. */
   erro: string | null;
+  /**
+   * A rodada funcionou, mas com pedaço faltando (páginas que o PNCP recusou).
+   *
+   * Separado do `erro` de propósito: o PNCP recusa algumas dezenas de páginas
+   * em quase toda varredura, e enfiar isso no mesmo campo fazia a tela anunciar
+   * "Última coleta falhou" em vermelho logo depois de uma coleta que salvou 22
+   * mil licitações. Aviso não é falha.
+   */
+  aviso: string | null;
   // Progresso da rodada atual (ou da última concluída).
   etapa: "ociosa" | "lendo_pncp" | "localizando_cidades" | "triando" | "concluida";
   ufAtual: string | null;
@@ -234,6 +244,7 @@ const statusInicial: ColetaStatus = {
   cursor: null,
   ultimoSinalEm: null,
   erro: null,
+  aviso: null,
   etapa: "ociosa",
   ufAtual: null,
   paginasLidas: 0,
@@ -290,6 +301,7 @@ export async function tentarAssumirColeta(): Promise<boolean> {
       ultimoSinalEm: agora,
       terminadaEm: null,
       erro: null,
+      aviso: null,
       etapa: "lendo_pncp",
       ufAtual: null,
       paginasLidas: 0,

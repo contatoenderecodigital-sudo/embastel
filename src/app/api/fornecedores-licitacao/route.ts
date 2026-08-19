@@ -3,7 +3,6 @@ import {
   addFornecedorLicitacao,
   CATEGORIAS_SUGERIDAS,
   cotadoresParaTexto,
-  importarDaLoja,
   listCategorias,
   listFornecedoresLicitacao,
   prontoParaCotar,
@@ -42,12 +41,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-
-  // Um POST com {acao:"importar-da-loja"} copia a agenda da loja pra cá.
-  if (body?.acao === "importar-da-loja") {
-    return NextResponse.json(await importarDaLoja());
-  }
-
   if (!body.nome?.trim()) {
     return NextResponse.json(
       { error: "Nome do fornecedor é obrigatório" },

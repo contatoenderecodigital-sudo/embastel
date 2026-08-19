@@ -80,6 +80,7 @@ type ColetaStatus = {
   novasNaUltimaColeta: number;
   cidadesPendentes: number;
   erro: string | null;
+  aviso: string | null;
 };
 
 // Devolve dias inteiros restantes, ou -1 para qualquer prazo já vencido.
@@ -590,6 +591,15 @@ export default function LicitacoesPage() {
         {coleta?.erro && !coleta.rodando && (
           <p className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-[12px] text-red-700">
             Última coleta falhou: {coleta.erro}
+          </p>
+        )}
+
+        {/* Coleta que deu certo mas deixou página pra trás. Cinza, não
+            vermelho: não há nada pra fazer, a próxima rodada já tenta de
+            novo. */}
+        {coleta?.aviso && !coleta.erro && !coleta.rodando && (
+          <p className="border-t border-neutral-100 bg-neutral-50 px-5 py-2.5 text-[12px] text-neutral-500">
+            {coleta.aviso}
           </p>
         )}
 

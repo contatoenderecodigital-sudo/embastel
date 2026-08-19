@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { casarCategorias } from "./casarCategorias";
 import { jsonStore } from "./jsonStore";
-import { listFornecedores } from "./fornecedoresDb";
 import { normalizarTexto } from "./textoUtils";
 
 // A agenda de fornecedor DE LICITAÇÃO — separada da agenda da loja de
@@ -124,9 +123,7 @@ function novoRegistro(nome: string): FornecedorLicitacao {
   };
 }
 
-// Começa vazia: quem entra aqui é fornecedor conferido, um por um. Encher com
-// os 35 nomes da loja daria uma lista que parece pronta e não é — e o erro
-// caro desta tela é confiar num fornecedor que não fatura pra prefeitura.
+// Começa vazia: quem entra aqui é fornecedor conferido, um por um.
 const store = jsonStore<Dados>("fornecedor_licitacao.json", { fornecedores: [] });
 
 export function apenasDigitos(valor: string): string {
@@ -320,46 +317,9 @@ export async function deleteFornecedorLicitacao(id: string): Promise<void> {
   });
 }
 
-/**
- * Traz da agenda da loja quem ainda não está aqui, pra não redigitar 35 nomes.
- *
- * Só copia o cadastro (nome, telefone, categorias). Tudo que é de licitação —
- * se fatura pra órgão público, prazo, condição de pagamento — entra como "não
- * sei", porque ninguém perguntou isso pra eles ainda. Copiar como "sim" seria
- * inventar o dado justamente no campo em que errar custa multa.
- *
- * Compara por CNPJ quando existe, e por nome quando não — a lista da loja está
- * quase toda sem CNPJ.
- */
-export async function importarDaLoja(): Promise<{ importados: number }> {
-  const daLoja = await listFornecedores();
-  return store.update((data) => {
-    const jaTem = new Set<string>();
-    for (const f of data.fornecedores) {
-      if (f.cnpj) jaTem.add(`cnpj:${f.cnpj}`);
-      jaTem.add(`nome:${normalizarTexto(f.nome)}`);
-    }
-
-    let importados = 0;
-    for (const origem of daLoja) {
-      const chaveCnpj = origem.cnpj ? `cnpj:${origem.cnpj}` : null;
-      const chaveNome = `nome:${normalizarTexto(origem.nome)}`;
-      if ((chaveCnpj && jaTem.has(chaveCnpj)) || jaTem.has(chaveNome)) continue;
-
-      const novo = novoRegistro(origem.nome);
-      novo.razaoSocial = origem.razaoSocial;
-      novo.cnpj = origem.cnpj;
-      novo.telefone = origem.telefone;
-      novo.email = origem.email;
-      novo.contato = origem.contato;
-      novo.departamento = origem.departamento;
-      novo.categorias = [...origem.categorias];
-      data.fornecedores.push(novo);
-
-      if (chaveCnpj) jaTem.add(chaveCnpj);
-      jaTem.add(chaveNome);
-      importados++;
-    }
-    return { importados };
-  });
-}
+// Não existe importação da agenda da loja, e é de propósito: são fornecedores
+// diferentes. Quem abastece a prateleira é indústria e distribuidor de linha
+// de balcão; quem entra numa proposta pra prefeitura é outro grupo, com outro
+// preço e outro compromisso. Existiu um botão "trazer da lista da loja" por
+// algumas horas em 19/08/2026 — foi removido no mesmo dia, a pedido do
+// usuário, porque misturava duas listas que não se cruzam.

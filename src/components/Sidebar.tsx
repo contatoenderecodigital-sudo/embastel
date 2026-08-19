@@ -90,6 +90,18 @@ const AREAS: Record<Area, { titulo: string; legenda: string; grupos: Grupo[] }> 
             ),
           },
           {
+            // Onde se descobre até quanto dá pra baixar em cada lote, com os
+            // lotes vindos do próprio edital (ver disputaDb.ts).
+            href: "/painel/disputa",
+            label: "Disputa e piso",
+            icon: (
+              <>
+                <path d="M3 16.5h14M5.5 16.5V9M10 16.5V5M14.5 16.5v-4" />
+                <path d="M3 6.5l4-2.5 4 3 6-4" />
+              </>
+            ),
+          },
+          {
             href: "/painel/catalogo",
             label: "Catálogo e margem",
             icon: (

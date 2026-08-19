@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json.schemastore.org/vsls",
+  "gitignore": "exclude",
+  "excludeFiles": [
+    ".env",
+    ".env.*",
+    "!.env.local.example",
+    "data/**",
+    "**/*.pem",
+    "**/id_rsa*"
+  ]
+}

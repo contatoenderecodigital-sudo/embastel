@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { casarCategorias } from "./casarCategorias";
 import { jsonStore } from "./jsonStore";
 import { normalizarTexto } from "./textoUtils";
 
@@ -140,32 +141,10 @@ export async function listCategorias(): Promise<string[]> {
 }
 
 /**
- * Radical da palavra, pra aguentar o plural do português.
+ * Fornecedores da loja que atendem um texto qualquer.
  *
- * Buscar a palavra inteira não funciona, e o motivo é menos óbvio do que
- * parece: "descartavel" NÃO está dentro de "descartaveis" — o plural de
- * "-ável" é "-áveis", e a última letra muda. O mesmo vale pra "papel/papeis".
- * (É por isso que a lista de palavras-chave das licitações guarda
- * "descartáve", truncado, em vez de "descartável".)
- *
- * Cortar a última letra resolve esse caso e ainda pega o plural simples
- * ("bandeja" → "bandej", que está em "bandejas"). O piso de 5 letras evita o
- * outro extremo: com piso 4, "prato" virava "prat" e casava com
- * "prateleiras" — testado, aparecia mesmo.
- */
-function radical(palavra: string): string {
-  return palavra.slice(0, Math.max(5, palavra.length - 1));
-}
-
-/**
- * Fornecedores que atendem um texto qualquer — o objeto de uma licitação, por
- * exemplo.
- *
- * Basta UMA palavra da categoria aparecer. Exigir todas deixaria de fora o
- * caso mais comum: a categoria "Prato e talher descartável" não apareceria num
- * edital que pede só "pratos descartáveis". E o custo de errar é assimétrico —
- * um nome a mais na lista é um telefonema desnecessário; um nome a menos é uma
- * cotação que não foi pedida e um lote que ficou sem preço.
+ * A regra de casamento mora em casarCategorias.ts, compartilhada com a agenda
+ * de licitação.
  */
 export async function fornecedoresParaTexto(texto: string): Promise<
   Array<{ fornecedor: Fornecedor; categoriasQueBatem: string[]; forca: number }>
@@ -180,21 +159,7 @@ export async function fornecedoresParaTexto(texto: string): Promise<
   }> = [];
 
   for (const bruto of await listFornecedores()) {
-    const batem: string[] = [];
-    let forca = 0;
-
-    for (const categoria of bruto.categorias) {
-      const c = normalizarTexto(categoria);
-      if (!c) continue;
-      const palavras = c.split(" ").filter((p) => p.length >= 4);
-      const acertos = palavras.filter((p) => alvo.includes(radical(p))).length;
-      if (acertos > 0) {
-        batem.push(categoria);
-        // Categoria inteira escrita no edital vale mais que uma palavra solta.
-        forca += alvo.includes(c) ? acertos + 2 : acertos;
-      }
-    }
-
+    const { batem, forca } = casarCategorias(bruto.categorias, alvo);
     if (batem.length) encontrados.push({ fornecedor: bruto, categoriasQueBatem: batem, forca });
   }
 

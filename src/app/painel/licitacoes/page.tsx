@@ -165,13 +165,24 @@ export default function LicitacoesPage() {
   const [arrastado, setArrastado] = useState<string | null>(null);
   const [colunaAlvo, setColunaAlvo] = useState<LicitacaoStatus | null>(null);
 
-  // "Quem cota isso": fornecedores cujas categorias batem com o objeto do
-  // edital. Um card por vez — a lista abre embaixo do card clicado.
+  // "Quem cota isso": fornecedores DE LICITAÇÃO cujas categorias batem com o
+  // objeto do edital. Um card por vez — a lista abre embaixo do card clicado.
+  //
+  // Consulta a agenda de licitação, não a da loja: quem não fatura pra órgão
+  // público não pode aparecer aqui, e o prazo de entrega precisa estar à vista
+  // pra comparar com o do edital antes de pedir a cotação.
   const [cotacao, setCotacao] = useState<{
     numero: string;
     carregando: boolean;
     lista: Array<{
-      fornecedor: { id: string; nome: string; telefone: string };
+      fornecedor: {
+        id: string;
+        nome: string;
+        telefone: string;
+        atendeLicitacao: "sim" | "nao" | "nao_sei";
+        prazoEntregaDias: number | null;
+        condicaoPagamento: string;
+      };
       categoriasQueBatem: string[];
     }>;
   } | null>(null);
@@ -184,7 +195,7 @@ export default function LicitacoesPage() {
     setCotacao({ numero: item.numeroControlePNCP, carregando: true, lista: [] });
     try {
       const res = await fetch(
-        `/api/fornecedores?para=${encodeURIComponent(item.objeto)}`
+        `/api/fornecedores-licitacao?para=${encodeURIComponent(item.objeto)}`
       );
       const dados = await res.json();
       setCotacao({
@@ -1171,8 +1182,8 @@ export default function LicitacoesPage() {
                                     </p>
                                   ) : cotacao.lista.length === 0 ? (
                                     <p className="text-[10.5px] text-neutral-500">
-                                      Nenhum fornecedor cadastrado atende isso.
-                                      Marque as categorias deles em Fornecedores.
+                                      Nenhum fornecedor de licitação atende isso.
+                                      Cadastre em Licitação → Fornecedores.
                                     </p>
                                   ) : (
                                     <div className="space-y-1.5">
@@ -1182,11 +1193,26 @@ export default function LicitacoesPage() {
                                           className="flex items-center gap-2"
                                         >
                                           <div className="min-w-0 flex-1">
-                                            <div className="truncate text-[11px] font-semibold text-neutral-800">
-                                              {a.fornecedor.nome}
+                                            <div className="flex items-center gap-1">
+                                              <span className="truncate text-[11px] font-semibold text-neutral-800">
+                                                {a.fornecedor.nome}
+                                              </span>
+                                              {a.fornecedor.atendeLicitacao === "sim" ? (
+                                                <span className="shrink-0 rounded bg-emerald-100 px-1 text-[9px] font-semibold text-emerald-700">
+                                                  fatura
+                                                </span>
+                                              ) : (
+                                                <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-800">
+                                                  confirmar
+                                                </span>
+                                              )}
                                             </div>
                                             <div className="truncate text-[10px] text-neutral-500">
                                               {a.categoriasQueBatem.join(", ")}
+                                              {a.fornecedor.prazoEntregaDias != null &&
+                                                ` · entrega ${a.fornecedor.prazoEntregaDias}d`}
+                                              {a.fornecedor.condicaoPagamento &&
+                                                ` · paga ${a.fornecedor.condicaoPagamento}`}
                                             </div>
                                           </div>
                                           {a.fornecedor.telefone ? (

@@ -81,6 +81,15 @@ const AREAS: Record<Area, { titulo: string; legenda: string; grupos: Grupo[] }> 
         label: "Disputar",
         links: [
           {
+            // Agenda própria, separada da lista da loja: aqui só entra quem dá
+            // pra colocar numa proposta (ver fornecedoresLicitacaoDb.ts).
+            href: "/painel/cotacao",
+            label: "Fornecedores",
+            icon: (
+              <path d="M4 17V8l6-4 6 4v9M4 17h12M4 17H2.5M16 17h1.5M8 17v-4h4v4" />
+            ),
+          },
+          {
             href: "/painel/catalogo",
             label: "Catálogo e margem",
             icon: (

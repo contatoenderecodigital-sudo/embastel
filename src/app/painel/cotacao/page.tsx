@@ -30,12 +30,8 @@ type Dados = {
 type Form = {
   id: string | null;
   nome: string;
-  razaoSocial: string;
-  cnpj: string;
   telefone: string;
-  email: string;
   contato: string;
-  departamento: string;
   categorias: string[];
   usarEmLicitacao: UsarEmLicitacao;
   seguraPrecoDias: string;
@@ -51,12 +47,8 @@ type Form = {
 const VAZIO: Form = {
   id: null,
   nome: "",
-  razaoSocial: "",
-  cnpj: "",
   telefone: "",
-  email: "",
   contato: "",
-  departamento: "",
   categorias: [],
   usarEmLicitacao: "nao_sei",
   seguraPrecoDias: "",
@@ -88,11 +80,6 @@ function formatarTelefone(digitos: string): string {
   return digitos;
 }
 
-function formatarCnpj(d: string): string {
-  if (d.length !== 14) return d;
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
-}
-
 function linkWhatsapp(digitos: string): string {
   const numero = digitos.startsWith("55") ? digitos : `55${digitos}`;
   return `https://wa.me/${numero}`;
@@ -105,12 +92,31 @@ function dataCurta(iso: string): string {
   });
 }
 
+/** Tem alguma coisa preenchida além do básico? Decide se abre os detalhes. */
+function temDetalhe(f: Form): boolean {
+  return Boolean(
+    f.usarEmLicitacao !== "nao_sei" ||
+      f.seguraPrecoDias ||
+      f.prazoEntregaDias ||
+      f.pedidoMinimo ||
+      f.condicaoPagamento ||
+      f.mandaFichaTecnica !== "nao_sei" ||
+      f.capacidade ||
+      f.ufsQueAtende.length ||
+      f.observacao
+  );
+}
+
 export default function CotacaoPage() {
   const [dados, setDados] = useState<Dados | null>(null);
   const [busca, setBusca] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [soProntos, setSoProntos] = useState(false);
   const [form, setForm] = useState<Form | null>(null);
+  // Os campos de proposta ficam recolhidos. O cadastro do dia a dia é empresa,
+  // vendedor, telefone e o que ela cota — o resto só se descobre depois de
+  // pedir a primeira cotação, e formulário comprido não é preenchido.
+  const [verDetalhes, setVerDetalhes] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [novaCategoria, setNovaCategoria] = useState("");
@@ -138,17 +144,7 @@ export default function CotacaoPage() {
       if (soProntos && !(f.telefone && f.categorias.length && f.usarEmLicitacao !== "nao"))
         return false;
       if (!termo) return true;
-      return [
-        f.nome,
-        f.razaoSocial,
-        f.contato,
-        f.departamento,
-        f.cnpj,
-        f.telefone,
-        f.condicaoPagamento,
-        ...f.categorias,
-        ...f.ufsQueAtende,
-      ]
+      return [f.nome, f.contato, f.telefone, f.condicaoPagamento, ...f.categorias, ...f.ufsQueAtende]
         .filter(Boolean)
         .some((campo) => campo.toLowerCase().includes(termo));
     });
@@ -156,15 +152,11 @@ export default function CotacaoPage() {
 
   function abrirEdicao(f: FornecedorLicitacao) {
     setErro(null);
-    setForm({
+    const novo: Form = {
       id: f.id,
       nome: f.nome,
-      razaoSocial: f.razaoSocial,
-      cnpj: f.cnpj,
       telefone: f.telefone,
-      email: f.email,
       contato: f.contato,
-      departamento: f.departamento,
       categorias: [...f.categorias],
       usarEmLicitacao: f.usarEmLicitacao,
       seguraPrecoDias: f.seguraPrecoDias == null ? "" : String(f.seguraPrecoDias),
@@ -175,7 +167,17 @@ export default function CotacaoPage() {
       capacidade: f.capacidade,
       ufsQueAtende: [...f.ufsQueAtende],
       observacao: f.observacao,
-    });
+    };
+    setForm(novo);
+    // Quem já tem detalhe preenchido abre com eles à vista; senão o formulário
+    // fica curto, que é o normal.
+    setVerDetalhes(temDetalhe(novo));
+  }
+
+  function abrirNovo() {
+    setErro(null);
+    setForm({ ...VAZIO });
+    setVerDetalhes(false);
   }
 
   function alternar(campo: "categorias" | "ufsQueAtende", valor: string) {
@@ -194,7 +196,7 @@ export default function CotacaoPage() {
   async function salvar() {
     if (!form) return;
     if (!form.nome.trim()) {
-      setErro("O nome é obrigatório.");
+      setErro("O nome da empresa é obrigatório.");
       return;
     }
     setSalvando(true);
@@ -255,6 +257,16 @@ export default function CotacaoPage() {
   ];
   const ufsDoForm = [...new Set([...dados.ufsSugeridas, ...(form?.ufsQueAtende ?? [])])];
 
+  const campo =
+    "rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand";
+  const rotulo = "text-[12px] font-medium text-neutral-600";
+  const chip = (marcada: boolean) =>
+    `rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+      marcada
+        ? "brand-gradient text-white shadow-sm"
+        : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+    }`;
+
   // O formulário aparece em dois lugares: no topo quando é cadastro novo, e no
   // lugar do card quando é edição — com a lista longa, formulário que abre no
   // topo passa despercebido.
@@ -266,267 +278,57 @@ export default function CotacaoPage() {
           {form.id ? `Editar ${form.nome}` : "Novo fornecedor de licitação"}
         </div>
 
+        {/* ------------------------------------------------------- o básico -- */}
         <div className="grid gap-3 md:grid-cols-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">
-              Nome (como vocês chamam)
-            </span>
+            <span className={rotulo}>Empresa</span>
             <input
               value={form.nome}
               onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              placeholder="ex: Copozan"
+              className={campo}
             />
           </label>
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-[12px] font-medium text-neutral-600">
-              Razão social{" "}
-              <span className="text-neutral-400">— é a que vai no processo</span>
-            </span>
-            <input
-              value={form.razaoSocial}
-              onChange={(e) => setForm({ ...form, razaoSocial: e.target.value })}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-
           <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">
-              Telefone / WhatsApp
-            </span>
+            <span className={rotulo}>Vendedor</span>
+            <input
+              value={form.contato}
+              onChange={(e) => setForm({ ...form, contato: e.target.value })}
+              placeholder="ex: Josué"
+              className={campo}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={rotulo}>Telefone / WhatsApp</span>
             <input
               value={form.telefone}
               inputMode="tel"
               onChange={(e) => setForm({ ...form, telefone: e.target.value })}
               placeholder="49 99999-9999"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">Quem atende</span>
-            <input
-              value={form.contato}
-              onChange={(e) => setForm({ ...form, contato: e.target.value })}
-              placeholder="nome do vendedor"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">Departamento</span>
-            <input
-              value={form.departamento}
-              onChange={(e) => setForm({ ...form, departamento: e.target.value })}
-              placeholder="televendas, representante…"
-              list="departamentos-licitacao"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">CNPJ</span>
-            <input
-              value={form.cnpj}
-              inputMode="numeric"
-              onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-              placeholder="só números"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-          <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-[12px] font-medium text-neutral-600">
-              E-mail <span className="text-neutral-400">— pra mandar a planilha de itens</span>
-            </span>
-            <input
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              className={campo}
             />
           </label>
         </div>
 
-        {/* -------------------------------------------- o que decide o uso -- */}
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
-          <div className="mb-1 text-[12px] font-semibold text-neutral-700">
-            O que decide se dá pra usar ele numa proposta
-          </div>
-          <p className="mb-3 text-[11.5px] text-neutral-500">
-            Ele fatura pra vocês como sempre — quem fatura e entrega pro
-            município é a Embastel. O que muda é o compromisso: a ata trava o
-            preço por meses, e o edital manda o prazo.
-          </p>
-
-          <div className="mb-3">
-            <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
-              Dá pra contar com ele numa licitação?
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {USAR.map((op) => (
-                <button
-                  key={op.valor}
-                  onClick={() => setForm({ ...form, usarEmLicitacao: op.valor })}
-                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                    form.usarEmLicitacao === op.valor
-                      ? "brand-gradient text-white shadow-sm"
-                      : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-100"
-                  }`}
-                >
-                  {op.rotulo}
-                  <span className="ml-1 font-normal opacity-70">— {op.ajuda}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Segura o preço por quantos dias
-              </span>
-              <input
-                value={form.seguraPrecoDias}
-                inputMode="numeric"
-                onChange={(e) =>
-                  setForm({ ...form, seguraPrecoDias: e.target.value.replace(/\D/g, "") })
-                }
-                placeholder="ex: 90"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-              <span className="text-[11px] text-neutral-400">
-                a ata dura até 12 meses; o que ele reajustar depois sai do seu
-                bolso
-              </span>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Entrega em quantos dias
-              </span>
-              <input
-                value={form.prazoEntregaDias}
-                inputMode="numeric"
-                onChange={(e) =>
-                  setForm({ ...form, prazoEntregaDias: e.target.value.replace(/\D/g, "") })
-                }
-                placeholder="ex: 10"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-              <span className="text-[11px] text-neutral-400">
-                o edital manda o prazo; quem não entrega paga multa
-              </span>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Condição de pagamento
-              </span>
-              <input
-                value={form.condicaoPagamento}
-                onChange={(e) => setForm({ ...form, condicaoPagamento: e.target.value })}
-                placeholder="ex: 30 dias, à vista"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-              <span className="text-[11px] text-neutral-400">
-                a prefeitura paga depois do empenho e do aceite
-              </span>
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Pedido mínimo
-              </span>
-              <input
-                value={form.pedidoMinimo}
-                onChange={(e) => setForm({ ...form, pedidoMinimo: e.target.value })}
-                placeholder="ex: 20 caixas, R$ 1.500"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-            <label className="flex flex-col gap-1 md:col-span-2">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Quanto ele dá conta de um pedido grande
-              </span>
-              <input
-                value={form.capacidade}
-                onChange={(e) => setForm({ ...form, capacidade: e.target.value })}
-                placeholder="ex: 500 caixas por semana"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-          </div>
-
-          <div className="mt-3">
-            <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
-              Manda ficha técnica, laudo e amostra quando o edital pede?{" "}
-              <span className="font-normal text-neutral-400">
-                — sem isso a proposta cai, mesmo com o melhor preço
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {FICHA.map((op) => (
-                <button
-                  key={op.valor}
-                  onClick={() => setForm({ ...form, mandaFichaTecnica: op.valor })}
-                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                    form.mandaFichaTecnica === op.valor
-                      ? "brand-gradient text-white shadow-sm"
-                      : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-100"
-                  }`}
-                >
-                  {op.rotulo}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
-              Entrega para
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {ufsDoForm.map((uf) => {
-                const marcada = form.ufsQueAtende.includes(uf);
-                return (
-                  <button
-                    key={uf}
-                    onClick={() => alternar("ufsQueAtende", uf)}
-                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                      marcada
-                        ? "brand-gradient text-white shadow-sm"
-                        : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-100"
-                    }`}
-                  >
-                    {marcada ? "✓ " : "+ "}
-                    {uf}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ------------------------------------------------------ categorias */}
+        {/* ----------------------------------------------------- categorias -- */}
         <div>
           <div className="mb-2 text-[12px] font-medium text-neutral-600">
-            O que ele cota{" "}
+            O que a empresa cota{" "}
             <span className="text-neutral-400">
-              — é isto que faz ele aparecer no &quot;Quem cota&quot; do edital
+              — é isto que faz ela aparecer no &quot;Quem cota&quot; do edital
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {categoriasDoForm.map((c) => {
-              const marcada = form.categorias.includes(c);
-              return (
-                <button
-                  key={c}
-                  onClick={() => alternar("categorias", c)}
-                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                    marcada
-                      ? "brand-gradient text-white shadow-sm"
-                      : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  {marcada ? "✓ " : "+ "}
-                  {c}
-                </button>
-              );
-            })}
+            {categoriasDoForm.map((c) => (
+              <button
+                key={c}
+                onClick={() => alternar("categorias", c)}
+                className={chip(form.categorias.includes(c))}
+              >
+                {form.categorias.includes(c) ? "✓ " : "+ "}
+                {c}
+              </button>
+            ))}
           </div>
           <input
             value={novaCategoria}
@@ -538,21 +340,170 @@ export default function CotacaoPage() {
               setNovaCategoria("");
             }}
             placeholder="Outra categoria (Enter pra adicionar)"
-            className="mt-2 w-64 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            className={`mt-2 w-64 ${campo}`}
           />
         </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-[12px] font-medium text-neutral-600">
-            Informações relevantes
+        {/* --------------------------------------------- detalhes recolhidos */}
+        <button
+          onClick={() => setVerDetalhes(!verDetalhes)}
+          className="flex items-center gap-1.5 text-[12.5px] font-medium text-neutral-500 hover:text-brand"
+        >
+          <span className={`transition-transform ${verDetalhes ? "rotate-90" : ""}`}>
+            ›
           </span>
-          <input
-            value={form.observacao}
-            onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-            placeholder="ex: só cota com planilha em Excel, frete por conta dele acima de R$ 3 mil"
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-          />
-        </label>
+          Detalhes pra proposta — prazo, preço travado, pagamento
+          <span className="text-neutral-400">(opcional)</span>
+        </button>
+
+        {verDetalhes && (
+          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
+            <p className="text-[11.5px] text-neutral-500">
+              Preencha quando souber, depois da primeira cotação. Ele fatura pra
+              vocês como sempre — quem entrega pro município é a Embastel. O que
+              muda é o compromisso: a ata trava o preço por meses.
+            </p>
+
+            <div>
+              <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
+                Dá pra contar com ele numa licitação?
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {USAR.map((op) => (
+                  <button
+                    key={op.valor}
+                    onClick={() => setForm({ ...form, usarEmLicitacao: op.valor })}
+                    className={chip(form.usarEmLicitacao === op.valor)}
+                  >
+                    {op.rotulo}
+                    <span className="ml-1 font-normal opacity-70">— {op.ajuda}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="flex flex-col gap-1">
+                <span className={rotulo}>Segura o preço por quantos dias</span>
+                <input
+                  value={form.seguraPrecoDias}
+                  inputMode="numeric"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      seguraPrecoDias: e.target.value.replace(/\D/g, ""),
+                    })
+                  }
+                  placeholder="ex: 90"
+                  className={campo}
+                />
+                <span className="text-[11px] text-neutral-400">
+                  a ata dura até 12 meses; o que ele reajustar depois sai do seu
+                  bolso
+                </span>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={rotulo}>Entrega em quantos dias</span>
+                <input
+                  value={form.prazoEntregaDias}
+                  inputMode="numeric"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      prazoEntregaDias: e.target.value.replace(/\D/g, ""),
+                    })
+                  }
+                  placeholder="ex: 10"
+                  className={campo}
+                />
+                <span className="text-[11px] text-neutral-400">
+                  o edital manda o prazo; quem não entrega paga multa
+                </span>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className={rotulo}>Condição de pagamento</span>
+                <input
+                  value={form.condicaoPagamento}
+                  onChange={(e) =>
+                    setForm({ ...form, condicaoPagamento: e.target.value })
+                  }
+                  placeholder="ex: 30 dias, à vista"
+                  className={campo}
+                />
+                <span className="text-[11px] text-neutral-400">
+                  a prefeitura paga depois do empenho e do aceite
+                </span>
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className={rotulo}>Pedido mínimo</span>
+                <input
+                  value={form.pedidoMinimo}
+                  onChange={(e) => setForm({ ...form, pedidoMinimo: e.target.value })}
+                  placeholder="ex: 20 caixas"
+                  className={campo}
+                />
+              </label>
+              <label className="flex flex-col gap-1 md:col-span-2">
+                <span className={rotulo}>Quanto dá conta de um pedido grande</span>
+                <input
+                  value={form.capacidade}
+                  onChange={(e) => setForm({ ...form, capacidade: e.target.value })}
+                  placeholder="ex: 500 caixas por semana"
+                  className={campo}
+                />
+              </label>
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
+                Manda ficha técnica, laudo e amostra quando o edital pede?{" "}
+                <span className="font-normal text-neutral-400">
+                  — sem isso a proposta cai, mesmo com o melhor preço
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {FICHA.map((op) => (
+                  <button
+                    key={op.valor}
+                    onClick={() => setForm({ ...form, mandaFichaTecnica: op.valor })}
+                    className={chip(form.mandaFichaTecnica === op.valor)}
+                  >
+                    {op.rotulo}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1.5 text-[12px] font-medium text-neutral-600">
+                Entrega para
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ufsDoForm.map((uf) => (
+                  <button
+                    key={uf}
+                    onClick={() => alternar("ufsQueAtende", uf)}
+                    className={chip(form.ufsQueAtende.includes(uf))}
+                  >
+                    {form.ufsQueAtende.includes(uf) ? "✓ " : "+ "}
+                    {uf}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex flex-col gap-1">
+              <span className={rotulo}>Informações relevantes</span>
+              <input
+                value={form.observacao}
+                onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+                placeholder="ex: só cota com planilha em Excel"
+                className={campo}
+              />
+            </label>
+          </div>
+        )}
 
         <div className="flex gap-2">
           <button
@@ -577,24 +528,14 @@ export default function CotacaoPage() {
 
   return (
     <div className="space-y-5 p-6 md:p-8">
-      <datalist id="departamentos-licitacao">
-        {[...new Set(dados.fornecedores.map((f) => f.departamento).filter(Boolean))].map(
-          (d) => (
-            <option key={d} value={d} />
-          )
-        )}
-      </datalist>
-
       <header>
         <h1 className="text-2xl font-bold text-neutral-900">
           Fornecedores de licitação
         </h1>
         <p className="mt-1 text-sm text-neutral-600">
-          Em cima de quem dá pra travar um preço com a prefeitura. Lista
-          própria, sem relação com a da loja: aqui importa por quanto tempo ele
-          segura o preço, em quantos dias entrega, como cobra e se responde
-          cotação. É esta lista que o botão &quot;Quem cota&quot; do edital
-          consulta.
+          Que empresa cota o quê, com o telefone do vendedor. Lista própria, sem
+          relação com a da loja. É esta lista que o botão &quot;Quem cota&quot;
+          do edital consulta.
         </p>
       </header>
 
@@ -603,6 +544,7 @@ export default function CotacaoPage() {
           {erro}
         </div>
       )}
+
       {/* --------------------------------------------------------- resumo -- */}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -618,14 +560,14 @@ export default function CotacaoPage() {
             ajuda: "já provaram que seguram",
           },
           {
+            rotulo: "Sem categoria",
+            valor: resumo.semCategoria,
+            ajuda: "não aparecem no Quem cota",
+          },
+          {
             rotulo: "Sem trava de preço",
             valor: resumo.semTravaDePreco,
             ajuda: "não sabemos por quanto tempo seguram",
-          },
-          {
-            rotulo: "Sem prazo de entrega",
-            valor: resumo.semPrazo,
-            ajuda: "não dá pra saber se cabe no edital",
           },
         ].map((c) => (
           <div
@@ -647,9 +589,7 @@ export default function CotacaoPage() {
 
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() =>
-            form?.id === null ? setForm(null) : (setErro(null), setForm({ ...VAZIO }))
-          }
+          onClick={() => (form?.id === null ? setForm(null) : abrirNovo())}
           className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
         >
           {form?.id === null ? "Fechar formulário" : "Cadastrar fornecedor"}
@@ -657,7 +597,7 @@ export default function CotacaoPage() {
         <input
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por nome, contato, CNPJ, telefone, categoria ou UF"
+          placeholder="Buscar por empresa, vendedor, telefone, categoria ou UF"
           className="min-w-[240px] flex-1 rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
         />
       </div>
@@ -665,11 +605,7 @@ export default function CotacaoPage() {
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           onClick={() => setSoProntos(!soProntos)}
-          className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-            soProntos
-              ? "brand-gradient text-white shadow-sm"
-              : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-          }`}
+          className={chip(soProntos)}
         >
           Só quem dá pra cotar hoje ({resumo.prontos})
         </button>
@@ -678,11 +614,7 @@ export default function CotacaoPage() {
             <span className="mx-1 text-neutral-300">|</span>
             <button
               onClick={() => setFiltroCategoria("")}
-              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                filtroCategoria === ""
-                  ? "brand-gradient text-white shadow-sm"
-                  : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-              }`}
+              className={chip(filtroCategoria === "")}
             >
               Toda categoria
             </button>
@@ -694,11 +626,7 @@ export default function CotacaoPage() {
                 <button
                   key={c}
                   onClick={() => setFiltroCategoria(filtroCategoria === c ? "" : c)}
-                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                    filtroCategoria === c
-                      ? "brand-gradient text-white shadow-sm"
-                      : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
-                  }`}
+                  className={chip(filtroCategoria === c)}
                 >
                   {c} ({quantos})
                 </button>
@@ -717,8 +645,8 @@ export default function CotacaoPage() {
             Nenhum fornecedor de licitação ainda.
           </p>
           <p className="mx-auto mt-1 max-w-lg text-[12.5px] text-neutral-500">
-            Cadastre quem te cota pra licitação: telefone, o que ele fornece,
-            por quanto tempo segura o preço e em quantos dias entrega.
+            Cadastre a empresa, o vendedor, o telefone e o que ela cota. O resto
+            é opcional.
           </p>
         </div>
       ) : filtrados.length === 0 ? (
@@ -755,30 +683,11 @@ export default function CotacaoPage() {
                           não usar
                         </span>
                       )}
-                      {f.usarEmLicitacao === "nao_sei" && (
-                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-800">
-                          falta testar
-                        </span>
-                      )}
-                      {f.departamento && (
-                        <span className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10.5px] font-medium text-neutral-600">
-                          {f.departamento}
-                        </span>
-                      )}
                     </div>
-                    {f.razaoSocial && (
-                      <div className="text-[11.5px] text-neutral-500">
-                        {f.razaoSocial}
-                      </div>
-                    )}
                     <div className="mt-0.5 text-[11.5px] text-neutral-500">
                       {f.contato && `${f.contato} · `}
                       {f.telefone ? formatarTelefone(f.telefone) : "sem telefone"}
-                      {f.cnpj && ` · ${formatarCnpj(f.cnpj)}`}
                     </div>
-                    {f.email && (
-                      <div className="text-[11.5px] text-neutral-500">{f.email}</div>
-                    )}
                   </div>
 
                   <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -803,14 +712,12 @@ export default function CotacaoPage() {
                     <button
                       onClick={() => abrirEdicao(f)}
                       className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium ${
-                        f.telefone && f.categorias.length && f.seguraPrecoDias != null
+                        f.categorias.length
                           ? "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
                           : "brand-gradient text-white shadow-sm"
                       }`}
                     >
-                      {f.telefone && f.categorias.length && f.seguraPrecoDias != null
-                        ? "Editar"
-                        : "Completar"}
+                      {f.categorias.length ? "Editar" : "Marcar o que cota"}
                     </button>
                     <button
                       onClick={() => excluir(f)}
@@ -820,46 +727,6 @@ export default function CotacaoPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* ------------------------------------------- as condições */}
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-neutral-600">
-                  <span>
-                    {f.seguraPrecoDias != null ? (
-                      <>
-                        Segura o preço{" "}
-                        <b className="font-semibold">{f.seguraPrecoDias} dias</b>
-                      </>
-                    ) : (
-                      <span className="text-amber-700">não sei se segura o preço</span>
-                    )}
-                  </span>
-                  <span>
-                    {f.prazoEntregaDias != null ? (
-                      <>
-                        Entrega em{" "}
-                        <b className="font-semibold">{f.prazoEntregaDias} dias</b>
-                      </>
-                    ) : (
-                      <span className="text-amber-700">prazo de entrega não sei</span>
-                    )}
-                  </span>
-                  {f.condicaoPagamento && <span>Paga em {f.condicaoPagamento}</span>}
-                  {f.pedidoMinimo && <span>Mín. {f.pedidoMinimo}</span>}
-                  {f.capacidade && <span>Dá conta de {f.capacidade}</span>}
-                  {f.mandaFichaTecnica === "nao" && (
-                    <span className="text-red-600">não manda ficha técnica</span>
-                  )}
-                  {f.mandaFichaTecnica === "sim" && <span>manda ficha técnica</span>}
-                  {f.ufsQueAtende.length > 0 && (
-                    <span>Entrega {f.ufsQueAtende.join(", ")}</span>
-                  )}
-                </div>
-
-                {f.observacao && (
-                  <div className="mt-1 text-[11.5px] text-neutral-500">
-                    {f.observacao}
-                  </div>
-                )}
 
                 {f.categorias.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -878,7 +745,47 @@ export default function CotacaoPage() {
                   </div>
                 )}
 
-                {/* ------------------------------------- histórico de resposta */}
+                {/* Só mostra as condições que alguém já preencheu — quem não
+                    cotou ainda não tem nada disso, e a linha some. */}
+                {(f.seguraPrecoDias != null ||
+                  f.prazoEntregaDias != null ||
+                  f.condicaoPagamento ||
+                  f.pedidoMinimo ||
+                  f.capacidade ||
+                  f.mandaFichaTecnica !== "nao_sei" ||
+                  f.ufsQueAtende.length > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-neutral-600">
+                    {f.seguraPrecoDias != null && (
+                      <span>
+                        Segura o preço{" "}
+                        <b className="font-semibold">{f.seguraPrecoDias} dias</b>
+                      </span>
+                    )}
+                    {f.prazoEntregaDias != null && (
+                      <span>
+                        Entrega em{" "}
+                        <b className="font-semibold">{f.prazoEntregaDias} dias</b>
+                      </span>
+                    )}
+                    {f.condicaoPagamento && <span>Paga em {f.condicaoPagamento}</span>}
+                    {f.pedidoMinimo && <span>Mín. {f.pedidoMinimo}</span>}
+                    {f.capacidade && <span>Dá conta de {f.capacidade}</span>}
+                    {f.mandaFichaTecnica === "sim" && <span>manda ficha técnica</span>}
+                    {f.mandaFichaTecnica === "nao" && (
+                      <span className="text-red-600">não manda ficha técnica</span>
+                    )}
+                    {f.ufsQueAtende.length > 0 && (
+                      <span>Entrega {f.ufsQueAtende.join(", ")}</span>
+                    )}
+                  </div>
+                )}
+
+                {f.observacao && (
+                  <div className="mt-1 text-[11.5px] text-neutral-500">
+                    {f.observacao}
+                  </div>
+                )}
+
                 <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-2.5">
                   <span className="text-[11.5px] text-neutral-500">
                     {f.cotacoesPedidas === 0 ? (
@@ -890,7 +797,8 @@ export default function CotacaoPage() {
                           {f.cotacoesRespondidas} de {f.cotacoesPedidas}
                         </b>{" "}
                         cotações
-                        {f.ultimaCotacaoEm && ` · última em ${dataCurta(f.ultimaCotacaoEm)}`}
+                        {f.ultimaCotacaoEm &&
+                          ` · última em ${dataCurta(f.ultimaCotacaoEm)}`}
                       </>
                     )}
                   </span>

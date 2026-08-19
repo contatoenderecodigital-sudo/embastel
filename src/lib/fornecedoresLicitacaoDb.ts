@@ -45,19 +45,21 @@ export type UsarEmLicitacao = "sim" | "nao" | "nao_sei";
 /** Resposta de três estados usada nos campos de sim/não/ainda não perguntei. */
 export type TresEstados = "sim" | "nao" | "nao_sei";
 
+// O cadastro é curto de propósito. A primeira versão pedia razão social,
+// CNPJ, e-mail e departamento; quem ia usar olhou e disse "tem muita
+// informação, eu só queria o nome, o número e qual é a empresa" — e tem razão,
+// porque cotação sai por WhatsApp, ninguém liga pro CNPJ do fornecedor pra
+// pedir preço, e formulário comprido acaba não sendo preenchido. Os quatro
+// campos saíram em 19/08/2026.
 export type FornecedorLicitacao = {
   id: string;
+  /** A empresa. É ela que cota, e é por ela que as categorias são guardadas. */
   nome: string;
-  razaoSocial: string;
-  cnpj: string;
   /** Só dígitos, no formato que o WhatsApp aceita (55 + DDD + número). */
   telefone: string;
-  email: string;
-  /** Nome de quem atende a Embastel. */
+  /** O vendedor com quem se fala nessa empresa. */
   contato: string;
-  /** Setor com quem se fala — televendas, representante, financeiro. */
-  departamento: string;
-  /** O que ele fornece. É por aqui que se acha quem cota um edital. */
+  /** O que a empresa fornece. É por aqui que se acha quem cota um edital. */
   categorias: string[];
 
   usarEmLicitacao: UsarEmLicitacao;
@@ -132,12 +134,8 @@ function novoRegistro(nome: string): FornecedorLicitacao {
   return {
     id: randomUUID(),
     nome,
-    razaoSocial: "",
-    cnpj: "",
     telefone: "",
-    email: "",
     contato: "",
-    departamento: "",
     categorias: [],
     usarEmLicitacao: "nao_sei",
     seguraPrecoDias: null,
@@ -167,12 +165,8 @@ export function apenasDigitos(valor: string): string {
 function completar(f: FornecedorLicitacao): FornecedorLicitacao {
   return {
     ...f,
-    razaoSocial: f.razaoSocial ?? "",
-    cnpj: f.cnpj ?? "",
     telefone: f.telefone ?? "",
-    email: f.email ?? "",
     contato: f.contato ?? "",
-    departamento: f.departamento ?? "",
     categorias: f.categorias ?? [],
     usarEmLicitacao: f.usarEmLicitacao ?? "nao_sei",
     seguraPrecoDias: f.seguraPrecoDias ?? null,
@@ -261,12 +255,8 @@ type Entrada = Partial<Omit<FornecedorLicitacao, "id" | "criadoEm" | "atualizado
 
 function aplicar(f: FornecedorLicitacao, entrada: Entrada): void {
   if (entrada.nome !== undefined) f.nome = entrada.nome.trim() || f.nome;
-  if (entrada.razaoSocial !== undefined) f.razaoSocial = entrada.razaoSocial.trim();
-  if (entrada.cnpj !== undefined) f.cnpj = apenasDigitos(entrada.cnpj);
   if (entrada.telefone !== undefined) f.telefone = apenasDigitos(entrada.telefone);
-  if (entrada.email !== undefined) f.email = entrada.email.trim();
   if (entrada.contato !== undefined) f.contato = entrada.contato.trim();
-  if (entrada.departamento !== undefined) f.departamento = entrada.departamento.trim();
   if (entrada.categorias !== undefined) {
     f.categorias = entrada.categorias.map((c) => c.trim()).filter(Boolean);
   }

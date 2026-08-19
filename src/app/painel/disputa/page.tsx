@@ -434,8 +434,13 @@ export default function DisputaPage() {
                       <td className="px-3 py-2 font-semibold tabular-nums text-neutral-800">
                         {l.numero || "—"}
                       </td>
-                      <td className="max-w-[280px] px-3 py-2">
-                        <div className={modoPregao ? "" : "line-clamp-2"}>
+                      {/* A descrição do edital passa de 300 caracteres (um MOP
+                          giratório vem com balde, cabo e refil descritos). Solta,
+                          ela empurra o piso e o campo de lance pra fora da tela
+                          justamente no modo pregão. Fica em duas linhas, com o
+                          texto inteiro no title. */}
+                      <td className="max-w-[260px] px-3 py-2">
+                        <div className="line-clamp-2" title={l.descricao}>
                           {l.descricao || "sem descrição"}
                         </div>
                       </td>

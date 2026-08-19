@@ -50,3 +50,6 @@ next-env.d.ts
 # pastas temporarias do deploy (scripts/deploy-vps.sh)
 /.next-novo
 /.next-antiga
+
+# screenshots de verificacao no navegador
+/*.png

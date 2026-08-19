@@ -19,6 +19,7 @@ type Form = {
   telefone: string;
   email: string;
   contato: string;
+  departamento: string;
   categorias: string[];
   observacao: string;
 };
@@ -31,6 +32,7 @@ const VAZIO: Form = {
   telefone: "",
   email: "",
   contato: "",
+  departamento: "",
   categorias: [],
   observacao: "",
 };
@@ -83,7 +85,15 @@ export default function FornecedoresPage() {
     return dados.fornecedores.filter((f) => {
       if (filtroCategoria && !f.categorias.includes(filtroCategoria)) return false;
       if (!termo) return true;
-      return [f.nome, f.razaoSocial, f.contato, f.cnpj, f.telefone, ...f.categorias]
+      return [
+        f.nome,
+        f.razaoSocial,
+        f.contato,
+        f.departamento,
+        f.cnpj,
+        f.telefone,
+        ...f.categorias,
+      ]
         .filter(Boolean)
         .some((campo) => campo.toLowerCase().includes(termo));
     });
@@ -99,6 +109,7 @@ export default function FornecedoresPage() {
       telefone: f.telefone,
       email: f.email,
       contato: f.contato,
+      departamento: f.departamento,
       categorias: [...f.categorias],
       observacao: f.observacao,
     });
@@ -164,14 +175,191 @@ export default function FornecedoresPage() {
     ]),
   ];
 
+  // O formulário é montado aqui, e não direto no JSX de baixo, porque ele
+  // aparece em dois lugares: no topo quando é cadastro novo, e NO LUGAR DO
+  // CARD quando é edição. Antes ele abria sempre no topo — com 35 fornecedores
+  // na tela, quem clicava em "Editar" num card lá embaixo não via nada
+  // acontecer e concluía que a tela não funcionava.
+  function renderFormulario() {
+    if (!form) return null;
+    return (
+      <div className="space-y-4 rounded-2xl border-2 border-brand/40 bg-white p-5 shadow-md">
+        <div className="text-sm font-semibold text-neutral-900">
+          {form.id ? `Editar ${form.nome}` : "Novo fornecedor"}
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-neutral-600">
+              Nome (como vocês chamam)
+            </span>
+            <input
+              value={form.nome}
+              onChange={(e) => setForm({ ...form, nome: e.target.value })}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-[12px] font-medium text-neutral-600">
+              Razão social
+            </span>
+            <input
+              value={form.razaoSocial}
+              onChange={(e) => setForm({ ...form, razaoSocial: e.target.value })}
+              placeholder="opcional"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-neutral-600">
+              Telefone / WhatsApp
+            </span>
+            <input
+              value={form.telefone}
+              inputMode="tel"
+              onChange={(e) => setForm({ ...form, telefone: e.target.value })}
+              placeholder="49 99999-9999"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-neutral-600">
+              Quem atende
+            </span>
+            <input
+              value={form.contato}
+              onChange={(e) => setForm({ ...form, contato: e.target.value })}
+              placeholder="nome do vendedor"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-neutral-600">
+              Departamento
+            </span>
+            <input
+              value={form.departamento}
+              onChange={(e) => setForm({ ...form, departamento: e.target.value })}
+              placeholder="televendas, representante…"
+              list="departamentos-usados"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium text-neutral-600">CNPJ</span>
+            <input
+              value={form.cnpj}
+              inputMode="numeric"
+              onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
+              placeholder="só números"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+          <label className="flex flex-col gap-1 md:col-span-2">
+            <span className="text-[12px] font-medium text-neutral-600">E-mail</span>
+            <input
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="pra mandar pedido de cotação"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </label>
+        </div>
+
+        {/* ----------------------------------------------------- categorias -- */}
+        <div>
+          <div className="mb-2 text-[12px] font-medium text-neutral-600">
+            O que ele fornece{" "}
+            <span className="text-neutral-400">
+              — é isto que faz ele aparecer quando você procura quem atende um
+              edital
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {categoriasDoForm.map((c) => {
+              const marcada = form.categorias.includes(c);
+              return (
+                <button
+                  key={c}
+                  onClick={() => alternarCategoria(c)}
+                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                    marcada
+                      ? "brand-gradient text-white shadow-sm"
+                      : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+                  }`}
+                >
+                  {marcada ? "✓ " : "+ "}
+                  {c}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={novaCategoria}
+              onChange={(e) => setNovaCategoria(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || !novaCategoria.trim()) return;
+                e.preventDefault();
+                alternarCategoria(novaCategoria.trim());
+                setNovaCategoria("");
+              }}
+              placeholder="Outra categoria (Enter pra adicionar)"
+              className="w-64 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1">
+          <span className="text-[12px] font-medium text-neutral-600">
+            Informações relevantes
+          </span>
+          <input
+            value={form.observacao}
+            onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+            placeholder="ex: pedido mínimo 20 caixas, entrega em 5 dias, não atende licitação"
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+          />
+        </label>
+
+        <div className="flex gap-2">
+          <button
+            onClick={salvar}
+            disabled={salvando}
+            className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+          >
+            {salvando ? "Salvando…" : "Salvar"}
+          </button>
+          <button
+            onClick={() => setForm(null)}
+            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 p-6 md:p-8">
+      <datalist id="departamentos-usados">
+        {[...new Set(dados.fornecedores.map((f) => f.departamento).filter(Boolean))].map(
+          (d) => (
+            <option key={d} value={d} />
+          )
+        )}
+      </datalist>
+
       <header>
         <h1 className="text-2xl font-bold text-neutral-900">Fornecedores</h1>
         <p className="mt-1 text-sm text-neutral-600">
-          Quem cota o quê, com telefone à mão. Quando cai um edital de 40 lotes
-          com prazo curto, a pergunta é sempre &quot;quem me cota isso?&quot; —
-          é pra responder isso em um clique.
+          A agenda de quem abastece a loja: telefone, com quem falar, em que
+          departamento e o que cada um fornece. É esta mesma lista que o botão
+          &quot;Quem cota&quot; da tela de licitações usa pra dizer pra quem
+          ligar quando cai um edital.
         </p>
       </header>
 
@@ -202,10 +390,12 @@ export default function FornecedoresPage() {
 
       <div className="flex flex-wrap gap-2">
         <button
-          onClick={() => (form ? setForm(null) : setForm({ ...VAZIO }))}
+          onClick={() =>
+            form?.id === null ? setForm(null) : (setErro(null), setForm({ ...VAZIO }))
+          }
           className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
         >
-          {form ? "Fechar formulário" : "Cadastrar fornecedor"}
+          {form?.id === null ? "Fechar formulário" : "Cadastrar fornecedor"}
         </button>
         <input
           value={busca}
@@ -252,152 +442,8 @@ export default function FornecedoresPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------- formulário -- */}
-      {form && (
-        <div className="space-y-4 rounded-2xl border border-neutral-200/70 bg-white p-5 shadow-sm">
-          <div className="text-sm font-semibold text-neutral-900">
-            {form.id ? `Editar ${form.nome}` : "Novo fornecedor"}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Nome (como vocês chamam)
-              </span>
-              <input
-                value={form.nome}
-                onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-            <label className="flex flex-col gap-1 md:col-span-2">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Razão social
-              </span>
-              <input
-                value={form.razaoSocial}
-                onChange={(e) => setForm({ ...form, razaoSocial: e.target.value })}
-                placeholder="opcional"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">CNPJ</span>
-              <input
-                value={form.cnpj}
-                inputMode="numeric"
-                onChange={(e) => setForm({ ...form, cnpj: e.target.value })}
-                placeholder="só números"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Telefone / WhatsApp
-              </span>
-              <input
-                value={form.telefone}
-                inputMode="tel"
-                onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-                placeholder="49 99999-9999"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-[12px] font-medium text-neutral-600">
-                Quem atende
-              </span>
-              <input
-                value={form.contato}
-                onChange={(e) => setForm({ ...form, contato: e.target.value })}
-                placeholder="nome do vendedor"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 md:col-span-3">
-              <span className="text-[12px] font-medium text-neutral-600">E-mail</span>
-              <input
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="pra mandar pedido de cotação"
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </label>
-          </div>
-
-          {/* --------------------------------------------------- categorias -- */}
-          <div>
-            <div className="mb-2 text-[12px] font-medium text-neutral-600">
-              O que ele fornece{" "}
-              <span className="text-neutral-400">
-                — é isto que faz ele aparecer quando você procura quem atende um
-                edital
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {categoriasDoForm.map((c) => {
-                const marcada = form.categorias.includes(c);
-                return (
-                  <button
-                    key={c}
-                    onClick={() => alternarCategoria(c)}
-                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
-                      marcada
-                        ? "brand-gradient text-white shadow-sm"
-                        : "border border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
-                    }`}
-                  >
-                    {marcada ? "✓ " : "+ "}
-                    {c}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={novaCategoria}
-                onChange={(e) => setNovaCategoria(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" || !novaCategoria.trim()) return;
-                  e.preventDefault();
-                  alternarCategoria(novaCategoria.trim());
-                  setNovaCategoria("");
-                }}
-                placeholder="Outra categoria (Enter pra adicionar)"
-                className="w-64 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              />
-            </div>
-          </div>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-[12px] font-medium text-neutral-600">Observação</span>
-            <input
-              value={form.observacao}
-              onChange={(e) => setForm({ ...form, observacao: e.target.value })}
-              placeholder="ex: pedido mínimo 20 caixas, entrega em 5 dias"
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-            />
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              onClick={salvar}
-              disabled={salvando}
-              className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
-            >
-              {salvando ? "Salvando…" : "Salvar"}
-            </button>
-            <button
-              onClick={() => setForm(null)}
-              className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Cadastro novo abre aqui em cima; edição abre no lugar do card. */}
+      {form?.id === null && renderFormulario()}
 
       {/* ----------------------------------------------------------- lista -- */}
       {filtrados.length === 0 ? (
@@ -408,7 +454,12 @@ export default function FornecedoresPage() {
         </div>
       ) : (
         <div className="grid gap-2 md:grid-cols-2">
-          {filtrados.map((f) => (
+          {filtrados.map((f) =>
+            form?.id === f.id ? (
+              <div key={f.id} className="md:col-span-2">
+                {renderFormulario()}
+              </div>
+            ) : (
             <div
               key={f.id}
               className="rounded-2xl border border-neutral-200/70 bg-white px-5 py-4 shadow-sm"
@@ -417,13 +468,18 @@ export default function FornecedoresPage() {
                 <div className="min-w-[160px] flex-1">
                   <div className="text-[14px] font-semibold text-neutral-900">
                     {f.nome}
+                    {f.departamento && (
+                      <span className="ml-1.5 rounded-md bg-neutral-100 px-1.5 py-0.5 text-[10.5px] font-medium text-neutral-600">
+                        {f.departamento}
+                      </span>
+                    )}
                   </div>
                   {f.razaoSocial && (
                     <div className="text-[11.5px] text-neutral-500">{f.razaoSocial}</div>
                   )}
                   <div className="mt-0.5 text-[11.5px] text-neutral-500">
                     {f.contato && `${f.contato} · `}
-                    {f.telefone && formatarTelefone(f.telefone)}
+                    {f.telefone ? formatarTelefone(f.telefone) : "sem telefone"}
                     {f.cnpj && ` · ${formatarCnpj(f.cnpj)}`}
                   </div>
                   {f.email && (
@@ -453,9 +509,13 @@ export default function FornecedoresPage() {
                   )}
                   <button
                     onClick={() => abrirEdicao(f)}
-                    className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[12px] font-medium text-neutral-700 hover:bg-neutral-50"
+                    className={`rounded-lg px-2.5 py-1.5 text-[12px] font-medium ${
+                      f.telefone && f.categorias.length
+                        ? "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+                        : "brand-gradient text-white shadow-sm"
+                    }`}
                   >
-                    Editar
+                    {f.telefone && f.categorias.length ? "Editar" : "Completar"}
                   </button>
                   <button
                     onClick={() => excluir(f)}
@@ -483,7 +543,8 @@ export default function FornecedoresPage() {
                 </div>
               )}
             </div>
-          ))}
+            )
+          )}
         </div>
       )}
     </div>

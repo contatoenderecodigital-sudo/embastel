@@ -25,6 +25,8 @@ export type Fornecedor = {
   email: string;
   /** Nome do vendedor que atende a Embastel. */
   contato: string;
+  /** Setor com quem se fala — televendas, representante, financeiro. */
+  departamento: string;
   /** O que ele fornece. É por aqui que se acha fornecedor pra um edital. */
   categorias: string[];
   observacao: string;
@@ -84,6 +86,7 @@ function novoRegistro(nome: string): Fornecedor {
     telefone: "",
     email: "",
     contato: "",
+    departamento: "",
     categorias: [],
     observacao: "",
     criadoEm: agora,
@@ -112,6 +115,7 @@ function completar(f: Fornecedor): Fornecedor {
     telefone: f.telefone ?? "",
     email: f.email ?? "",
     contato: f.contato ?? "",
+    departamento: f.departamento ?? "",
     categorias: f.categorias ?? [],
     observacao: f.observacao ?? "",
     atualizadoEm: f.atualizadoEm ?? f.criadoEm,
@@ -211,6 +215,7 @@ export async function addFornecedor(entrada: Entrada | string): Promise<Forneced
       telefone: apenasDigitos(dados.telefone ?? ""),
       email: dados.email?.trim() ?? "",
       contato: dados.contato?.trim() ?? "",
+      departamento: dados.departamento?.trim() ?? "",
       categorias: (dados.categorias ?? []).map((c) => c.trim()).filter(Boolean),
       observacao: dados.observacao?.trim() ?? "",
     };
@@ -235,6 +240,9 @@ export async function updateFornecedor(
     if (entrada.telefone !== undefined) f.telefone = apenasDigitos(entrada.telefone);
     if (entrada.email !== undefined) f.email = entrada.email.trim();
     if (entrada.contato !== undefined) f.contato = entrada.contato.trim();
+    if (entrada.departamento !== undefined) {
+      f.departamento = entrada.departamento.trim();
+    }
     if (entrada.categorias !== undefined) {
       f.categorias = entrada.categorias.map((c) => c.trim()).filter(Boolean);
     }

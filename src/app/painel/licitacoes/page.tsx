@@ -169,9 +169,9 @@ export default function LicitacoesPage() {
   // "Quem cota isso": fornecedores DE LICITAÇÃO cujas categorias batem com o
   // objeto do edital. Um card por vez — a lista abre embaixo do card clicado.
   //
-  // Consulta a agenda de licitação, não a da loja: quem não fatura pra órgão
-  // público não pode aparecer aqui, e o prazo de entrega precisa estar à vista
-  // pra comparar com o do edital antes de pedir a cotação.
+  // Consulta a agenda de licitação, não a da loja: quem está marcado como "não
+  // usar" não pode aparecer aqui, e a trava de preço e o prazo de entrega
+  // precisam estar à vista pra comparar com o do edital antes de ligar.
   const [cotacao, setCotacao] = useState<{
     numero: string;
     carregando: boolean;
@@ -180,7 +180,8 @@ export default function LicitacoesPage() {
         id: string;
         nome: string;
         telefone: string;
-        atendeLicitacao: "sim" | "nao" | "nao_sei";
+        usarEmLicitacao: "sim" | "nao" | "nao_sei";
+        seguraPrecoDias: number | null;
         prazoEntregaDias: number | null;
         condicaoPagamento: string;
       };
@@ -1207,18 +1208,20 @@ export default function LicitacoesPage() {
                                               <span className="truncate text-[11px] font-semibold text-neutral-800">
                                                 {a.fornecedor.nome}
                                               </span>
-                                              {a.fornecedor.atendeLicitacao === "sim" ? (
+                                              {a.fornecedor.usarEmLicitacao === "sim" ? (
                                                 <span className="shrink-0 rounded bg-emerald-100 px-1 text-[9px] font-semibold text-emerald-700">
-                                                  fatura
+                                                  pode contar
                                                 </span>
                                               ) : (
                                                 <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-semibold text-amber-800">
-                                                  confirmar
+                                                  falta testar
                                                 </span>
                                               )}
                                             </div>
                                             <div className="truncate text-[10px] text-neutral-500">
                                               {a.categoriasQueBatem.join(", ")}
+                                              {a.fornecedor.seguraPrecoDias != null &&
+                                                ` · segura ${a.fornecedor.seguraPrecoDias}d`}
                                               {a.fornecedor.prazoEntregaDias != null &&
                                                 ` · entrega ${a.fornecedor.prazoEntregaDias}d`}
                                               {a.fornecedor.condicaoPagamento &&

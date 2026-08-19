@@ -6,26 +6,44 @@ import { normalizarTexto } from "./textoUtils";
 // A agenda de fornecedor DE LICITAÇÃO — separada da agenda da loja de
 // propósito.
 //
-// Não é a mesma lista com campos a mais. É outra pergunta. Na loja a pergunta
-// é "quem me vende isso pra repor a prateleira". Na licitação é "com quem eu
-// posso me comprometer com uma prefeitura", e a resposta depende de coisas que
-// pro balcão não fazem a menor diferença:
+// Não é a mesma lista com campos a mais. É outra pergunta. Na loja é "quem me
+// vende isso pra repor a prateleira". Aqui é "em cima de quem eu posso travar
+// um preço com a prefeitura por meses".
 //
-//  - Ele fatura pra órgão público? Muito fornecedor simplesmente não faz, e
-//    descobrir isso DEPOIS de ganhar o pregão é o pior momento possível: a
-//    proposta já foi, o preço já está travado, e não entregar dá multa e
-//    suspensão de licitar.
-//  - Em quantos dias ele entrega? O edital manda o prazo. Se ele leva 25 dias
-//    e o edital dá 10, o preço dele não serve, por melhor que seja.
-//  - Qual a condição de pagamento? A prefeitura paga em 30 dias ou mais. Se o
-//    fornecedor só vende à vista, quem financia a operação é a Embastel.
-//  - Ele responde cotação? Edital fecha em 3 dias. Fornecedor que some é pior
-//    que fornecedor caro — por isso o histórico de pedidas × respondidas.
+// QUEM FATURA PRA QUEM: o fornecedor vende pra Embastel como sempre vendeu, e
+// é a Embastel que fatura e entrega pro município. O fornecedor nem sabe que
+// tem licitação no meio. (Este arquivo já teve um campo "fatura pra órgão
+// público?" — não fazia sentido nenhum e saiu em 19/08/2026.)
+//
+// O que muda em relação à venda de balcão é o COMPROMISSO. Numa ata de
+// registro de preços a Embastel trava o preço por até 12 meses e é obrigada a
+// entregar no prazo do edital; quem não entrega paga multa e pode ser suspensa
+// de licitar. Então o que interessa saber de cada fornecedor é:
+//
+//  - Por quantos dias ele segura o preço da cotação. É o campo mais importante
+//    da tela: se ele reajusta no terceiro mês de uma ata de doze, o prejuízo
+//    inteiro é da Embastel, porque com a prefeitura o preço já está travado.
+//  - Em quantos dias entrega. O edital manda o prazo; se ele leva 25 e o
+//    edital dá 10, o preço dele não serve por melhor que seja.
+//  - Como cobra. A prefeitura paga em 30 dias ou mais, depois do empenho e do
+//    aceite. Se o fornecedor só vende à vista, quem banca o intervalo é a
+//    Embastel.
+//  - Se manda ficha técnica e amostra. Edital costuma exigir, e sem isso a
+//    proposta é desclassificada mesmo com o melhor preço.
+//  - Se responde cotação. Edital fecha em 3 dias; quem some é pior que quem é
+//    caro — daí o histórico de pedidas × respondidas.
 //
 // Nome do arquivo pedido pelo usuário em 19/08/2026: fornecedor_licitacao.
 
-/** Se dá pra usar ele numa proposta. É o campo que mais elimina candidato. */
-export type AtendeLicitacao = "sim" | "nao" | "nao_sei";
+/**
+ * Se dá pra contar com ele numa licitação. É julgamento do usuário, não conta
+ * derivada: alguém que nunca segura preço, ou que já deu cano na entrega,
+ * entra como "não" e some do "Quem cota".
+ */
+export type UsarEmLicitacao = "sim" | "nao" | "nao_sei";
+
+/** Resposta de três estados usada nos campos de sim/não/ainda não perguntei. */
+export type TresEstados = "sim" | "nao" | "nao_sei";
 
 export type FornecedorLicitacao = {
   id: string;
@@ -42,13 +60,25 @@ export type FornecedorLicitacao = {
   /** O que ele fornece. É por aqui que se acha quem cota um edital. */
   categorias: string[];
 
-  atendeLicitacao: AtendeLicitacao;
+  usarEmLicitacao: UsarEmLicitacao;
+  /**
+   * Por quantos dias ele segura o preço que cotou.
+   *
+   * O campo que mais decide. A ata de registro de preços dura até 12 meses com
+   * o preço travado do lado da prefeitura; se o fornecedor só garante 30 dias,
+   * todo reajuste depois disso sai do bolso da Embastel.
+   */
+  seguraPrecoDias: number | null;
   /** Dias que ele leva pra entregar. Comparado com o prazo do edital. */
   prazoEntregaDias: number | null;
   /** Ex.: "20 caixas", "R$ 1.500". Texto livre — cada um cobra do seu jeito. */
   pedidoMinimo: string;
   /** Ex.: "30 dias", "à vista", "boleto 28ddl". */
   condicaoPagamento: string;
+  /** Manda ficha técnica, laudo e amostra quando o edital exige. */
+  mandaFichaTecnica: TresEstados;
+  /** Ex.: "500 caixas por semana". Quanto ele aguenta de um pedido grande. */
+  capacidade: string;
   /** Siglas de UF pra onde ele entrega. Vazio = não perguntamos ainda. */
   ufsQueAtende: string[];
 
@@ -109,10 +139,13 @@ function novoRegistro(nome: string): FornecedorLicitacao {
     contato: "",
     departamento: "",
     categorias: [],
-    atendeLicitacao: "nao_sei",
+    usarEmLicitacao: "nao_sei",
+    seguraPrecoDias: null,
     prazoEntregaDias: null,
     pedidoMinimo: "",
     condicaoPagamento: "",
+    mandaFichaTecnica: "nao_sei",
+    capacidade: "",
     ufsQueAtende: [],
     cotacoesPedidas: 0,
     cotacoesRespondidas: 0,
@@ -141,10 +174,13 @@ function completar(f: FornecedorLicitacao): FornecedorLicitacao {
     contato: f.contato ?? "",
     departamento: f.departamento ?? "",
     categorias: f.categorias ?? [],
-    atendeLicitacao: f.atendeLicitacao ?? "nao_sei",
+    usarEmLicitacao: f.usarEmLicitacao ?? "nao_sei",
+    seguraPrecoDias: f.seguraPrecoDias ?? null,
     prazoEntregaDias: f.prazoEntregaDias ?? null,
     pedidoMinimo: f.pedidoMinimo ?? "",
     condicaoPagamento: f.condicaoPagamento ?? "",
+    mandaFichaTecnica: f.mandaFichaTecnica ?? "nao_sei",
+    capacidade: f.capacidade ?? "",
     ufsQueAtende: f.ufsQueAtende ?? [],
     cotacoesPedidas: f.cotacoesPedidas ?? 0,
     cotacoesRespondidas: f.cotacoesRespondidas ?? 0,
@@ -158,12 +194,12 @@ function completar(f: FornecedorLicitacao): FornecedorLicitacao {
  * Dá pra pedir cotação pra ele agora?
  *
  * Sem telefone não dá pra ligar; sem categoria ele nunca aparece na busca por
- * edital; e "não atende licitação" elimina de saída. O resto (prazo, condição
- * de pagamento) refina a escolha, mas não impede o telefonema.
+ * edital; e quem está marcado como "não usar" sai de saída. O resto (prazo,
+ * pagamento, ficha técnica) refina a escolha, mas não impede o telefonema.
  */
 export function prontoParaCotar(f: FornecedorLicitacao): boolean {
   return (
-    Boolean(f.telefone) && f.categorias.length > 0 && f.atendeLicitacao !== "nao"
+    Boolean(f.telefone) && f.categorias.length > 0 && f.usarEmLicitacao !== "nao"
   );
 }
 
@@ -190,10 +226,10 @@ export type Cotador = {
 /**
  * Quem cota este edital, do melhor pro pior.
  *
- * Quem já respondeu "não atende licitação" fica de fora inteiro: mostrar ele
- * na lista só faz alguém gastar um telefonema pra ouvir o mesmo não de novo.
- * O que já sabemos que fatura pra órgão público sobe na frente do "não sei",
- * mesmo cobrindo menos categorias — é por ele que se começa a ligar.
+ * Quem está marcado como "não usar" fica de fora inteiro: mostrar ele na lista
+ * só faz alguém gastar um telefonema à toa. Quem já é de confiança sobe na
+ * frente do "ainda não sei", mesmo cobrindo menos categorias — é por ele que
+ * se começa a ligar.
  */
 export async function cotadoresParaTexto(texto: string): Promise<Cotador[]> {
   const alvo = normalizarTexto(texto);
@@ -201,13 +237,13 @@ export async function cotadoresParaTexto(texto: string): Promise<Cotador[]> {
 
   const encontrados: Cotador[] = [];
   for (const f of await listFornecedoresLicitacao()) {
-    if (f.atendeLicitacao === "nao") continue;
+    if (f.usarEmLicitacao === "nao") continue;
     const { batem, forca } = casarCategorias(f.categorias, alvo);
     if (batem.length) encontrados.push({ fornecedor: f, categoriasQueBatem: batem, forca });
   }
 
   return encontrados.sort((a, b) => {
-    const confirmado = (c: Cotador) => (c.fornecedor.atendeLicitacao === "sim" ? 1 : 0);
+    const confirmado = (c: Cotador) => (c.fornecedor.usarEmLicitacao === "sim" ? 1 : 0);
     if (confirmado(a) !== confirmado(b)) return confirmado(b) - confirmado(a);
     if (a.forca !== b.forca) return b.forca - a.forca;
     // Empate: quem costuma responder cotação vem antes de quem some.
@@ -234,23 +270,34 @@ function aplicar(f: FornecedorLicitacao, entrada: Entrada): void {
   if (entrada.categorias !== undefined) {
     f.categorias = entrada.categorias.map((c) => c.trim()).filter(Boolean);
   }
-  if (entrada.atendeLicitacao !== undefined) {
-    // Valor de fora da lista vira "não sei" em vez de entrar cru: o campo
-    // decide se ele aparece na busca por edital.
-    f.atendeLicitacao = (["sim", "nao", "nao_sei"] as string[]).includes(
-      entrada.atendeLicitacao
-    )
-      ? entrada.atendeLicitacao
-      : "nao_sei";
+  // Valor de fora da lista vira "não sei" em vez de entrar cru: é este campo
+  // que decide se ele aparece na busca por edital.
+  const tresEstados = (v: string): TresEstados =>
+    (["sim", "nao", "nao_sei"] as string[]).includes(v) ? (v as TresEstados) : "nao_sei";
+  // Só aceita dia positivo; qualquer outra coisa vira "não sei", que é
+  // diferente de zero — zero diria "não segura o preço nem um dia".
+  const dias = (v: unknown): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  };
+
+  if (entrada.usarEmLicitacao !== undefined) {
+    f.usarEmLicitacao = tresEstados(entrada.usarEmLicitacao);
+  }
+  if (entrada.mandaFichaTecnica !== undefined) {
+    f.mandaFichaTecnica = tresEstados(entrada.mandaFichaTecnica);
+  }
+  if (entrada.seguraPrecoDias !== undefined) {
+    f.seguraPrecoDias = dias(entrada.seguraPrecoDias);
   }
   if (entrada.prazoEntregaDias !== undefined) {
-    const n = Number(entrada.prazoEntregaDias);
-    f.prazoEntregaDias = Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+    f.prazoEntregaDias = dias(entrada.prazoEntregaDias);
   }
   if (entrada.pedidoMinimo !== undefined) f.pedidoMinimo = entrada.pedidoMinimo.trim();
   if (entrada.condicaoPagamento !== undefined) {
     f.condicaoPagamento = entrada.condicaoPagamento.trim();
   }
+  if (entrada.capacidade !== undefined) f.capacidade = entrada.capacidade.trim();
   if (entrada.ufsQueAtende !== undefined) {
     f.ufsQueAtende = entrada.ufsQueAtende.map((u) => u.trim()).filter(Boolean);
   }

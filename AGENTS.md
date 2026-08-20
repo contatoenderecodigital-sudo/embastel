@@ -10,6 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Painel interno da Embastel Embalagens
 
+> **Antes de começar, leia o topo do `DIARIO.md`.** Duas pessoas mexem neste
+> projeto, cada uma com o próprio Claude, em computadores diferentes. O diário
+> é como as duas pontas se falam: o que mudou desde ontem, o que ficou pela
+> metade, o que está esperando resposta. O `git log` conta o que foi feito; o
+> diário conta o que ainda incomoda.
+>
+> **E escreva uma entrada nova quando terminar** algo que a outra ponta precise
+> saber. Entrada nova vai no topo.
+
+
 Distribuidora de embalagens e descartáveis em Xanxerê/SC. O painel é interno,
 usado por duas equipes com necessidades diferentes — é por isso que o menu tem
 um seletor **Licitação / Loja** no topo (`src/components/Sidebar.tsx`). Não é

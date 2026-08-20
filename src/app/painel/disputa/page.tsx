@@ -99,6 +99,11 @@ export default function DisputaPage() {
   // clicar numa coluna nova começa pela ordem que interessa nela (piso e folga
   // do maior pro menor, porque é onde está o dinheiro).
   const [ordem, setOrdem] = useState<Ordem>(null);
+  // Frete, imposto, margem e empate ficam escondidos por padrão. São quatro
+  // colunas que quase nunca mudam por lote (imposto e margem vêm do padrão do
+  // edital), e empurravam Piso, Fatura e Lucro pra fora da tela — a tabela
+  // rolava pro lado e a pessoa perdia de vista qual produto era cada linha.
+  const [mostrarCalculo, setMostrarCalculo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -524,6 +529,16 @@ export default function DisputaPage() {
 
             {!modoPregao && (
               <>
+                <button
+                  onClick={() => setMostrarCalculo(!mostrarCalculo)}
+                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium ${
+                    mostrarCalculo
+                      ? "brand-gradient text-white shadow-sm"
+                      : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
+                  }`}
+                >
+                  Frete, imposto e margem
+                </button>
                 <label className="flex items-center gap-1.5 text-[12px] text-neutral-600">
                   Imposto padrão
                   <input
@@ -668,7 +683,7 @@ export default function DisputaPage() {
                             <td className="px-3 py-2 text-right font-semibold tabular-nums">
                               {brl(p.item.preco)}
                             </td>
-                            <td className="max-w-[260px] px-3 py-2">
+                            <td className="sticky left-12 z-10 max-w-[240px] bg-inherit px-3 py-2 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                               <div className="font-semibold text-neutral-800">
                                 Lote {p.numeroLote}
                                 <span className="ml-1.5 font-normal text-neutral-400">
@@ -719,26 +734,32 @@ export default function DisputaPage() {
           )}
 
           {/* ----------------------------------------------------- a tabela -- */}
-          <div className="overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
-            <table className="w-full min-w-[900px] text-[12px]">
-              <thead className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500">
+          <div className="max-h-[70vh] overflow-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
+            <table className="w-full min-w-[760px] text-[12px]">
+              <thead className="sticky top-0 z-20 border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500">
                 <tr>
-                  <Cabecalho campo="numero" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Lote</Cabecalho>
-                  <Cabecalho campo="descricao" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Descrição</Cabecalho>
+                  <Cabecalho campo="numero" ordem={ordem} aoOrdenar={ordenarPor} className="sticky left-0 z-10 w-12 bg-neutral-50 px-2 py-2 text-left">Lote</Cabecalho>
+                  <Cabecalho campo="descricao" ordem={ordem} aoOrdenar={ordenarPor} className="sticky left-12 z-10 bg-neutral-50 px-3 py-2 text-left shadow-[2px_0_4px_rgba(0,0,0,0.05)]">Descrição</Cabecalho>
                   <Cabecalho campo="quantidade" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Qtd</Cabecalho>
                   {!modoPregao && (
                     <>
                       <Cabecalho campo="fornecedor" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Fornecedor</Cabecalho>
                       <Cabecalho campo="marca" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Marca</Cabecalho>
                       <Cabecalho campo="custo" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Custo un.</Cabecalho>
-                      <Cabecalho campo="frete" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Frete</Cabecalho>
-                      <Cabecalho campo="imposto" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Imp%</Cabecalho>
-                      <Cabecalho campo="margem" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Marg%</Cabecalho>
+                      {mostrarCalculo && (
+                        <>
+                          <Cabecalho campo="frete" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Frete</Cabecalho>
+                          <Cabecalho campo="imposto" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Imp%</Cabecalho>
+                          <Cabecalho campo="margem" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Marg%</Cabecalho>
+                        </>
+                      )}
                     </>
                   )}
                   <Cabecalho campo="referencia" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Ref. órgão</Cabecalho>
                   <Cabecalho campo="piso" ordem={ordem} aoOrdenar={ordenarPor} className="bg-brand/5 px-3 py-2 text-right font-bold text-brand">Piso</Cabecalho>
-                  <Cabecalho campo="empate" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Empate</Cabecalho>
+                  {mostrarCalculo && (
+                    <Cabecalho campo="empate" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Empate</Cabecalho>
+                  )}
                   <Cabecalho campo="lance" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Meu lance</Cabecalho>
                   <Cabecalho campo="faturamento" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Fatura</Cabecalho>
                   <Cabecalho campo="lucro" ordem={ordem} aoOrdenar={ordenarPor} className="bg-emerald-50 px-3 py-2 text-right font-bold text-emerald-700">Lucro</Cabecalho>
@@ -751,11 +772,18 @@ export default function DisputaPage() {
                   return (
                     <tr
                       key={l.id}
+                      // O fundo fica no <tr> porque as duas primeiras células
+                      // são sticky e precisam de fundo opaco pra tapar o que
+                      // passa por baixo — elas herdam este.
                       className={`border-b border-neutral-100 last:border-0 ${
-                        l.abaixoDoPiso ? "bg-red-50" : semCusto ? "bg-amber-50/40" : ""
+                        l.abaixoDoPiso
+                          ? "bg-red-50"
+                          : semCusto
+                            ? "bg-amber-50"
+                            : "bg-white"
                       }`}
                     >
-                      <td className="px-3 py-2 font-semibold tabular-nums text-neutral-800">
+                      <td className="sticky left-0 z-10 w-12 bg-inherit px-2 py-2 font-semibold tabular-nums text-neutral-800">
                         {l.numero || "—"}
                       </td>
                       {/* A descrição do edital passa de 300 caracteres (um MOP
@@ -850,6 +878,8 @@ export default function DisputaPage() {
                                 </button>
                               ))}
                           </td>
+                          {mostrarCalculo && (
+                          <>
                           <td className="px-3 py-2">
                             <input
                               defaultValue={l.freteTotal || ""}
@@ -886,6 +916,8 @@ export default function DisputaPage() {
                               className={`${numInput} w-14`}
                             />
                           </td>
+                          </>
+                          )}
                         </>
                       )}
 
@@ -906,9 +938,11 @@ export default function DisputaPage() {
                         )}
                       </td>
 
-                      <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
-                        {semCusto ? "—" : brl(l.empateUnitario)}
-                      </td>
+                      {mostrarCalculo && (
+                        <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                          {semCusto ? "—" : brl(l.empateUnitario)}
+                        </td>
+                      )}
 
                       <td className="px-3 py-2">
                         <input
@@ -974,12 +1008,15 @@ export default function DisputaPage() {
                   total daquele recorte, e não do edital inteiro. */}
               <tfoot className="border-t-2 border-neutral-200 bg-neutral-50 font-semibold">
                 <tr>
-                  <td className="px-3 py-2" colSpan={modoPregao ? 3 : 9}>
+                  <td
+                    className="sticky left-0 bg-neutral-50 px-3 py-2"
+                    colSpan={modoPregao ? 3 : mostrarCalculo ? 9 : 6}
+                  >
                     {lotesVisiveis.filter((l) => l.vale).length} lote(s) fecham
                     {lotesVisiveis.length !== (disputa?.totais.lotes ?? 0) &&
                       " (do filtro atual)"}
                   </td>
-                  <td className="px-3 py-2" colSpan={3} />
+                  <td className="px-3 py-2" colSpan={mostrarCalculo ? 3 : 2} />
                   <td className="px-3 py-2 text-right tabular-nums">
                     {brl(
                       lotesVisiveis

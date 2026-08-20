@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analisarLista, casarComLotes } from "@/lib/casarProdutos";
+import { sugerirParaLote } from "@/lib/cotacoesDb";
 import {
   adicionarLote,
   atualizarLote,
@@ -26,8 +27,23 @@ export async function GET(
 ) {
   const numero = await numeroDe(params);
   const [disputa, tracked] = await Promise.all([lerDisputa(numero), listTracked()]);
+
+  // Pra cada lote ainda sem custo, quem já cotou esse produto antes — é o que
+  // faz a cotação de um edital servir no próximo. Só os sem custo: quem já tem
+  // preço não precisa de palpite.
+  const sugestoes: Record<string, Awaited<ReturnType<typeof sugerirParaLote>>> = {};
+  await Promise.all(
+    disputa.lotes
+      .filter((l) => l.custoUnitario <= 0 && !l.descartado)
+      .map(async (l) => {
+        const s = await sugerirParaLote(l.descricao, l.quantidade);
+        if (s.length) sugestoes[l.id] = s.slice(0, 3);
+      })
+  );
+
   return NextResponse.json({
     disputa,
+    sugestoes,
     licitacao: tracked.find((t) => t.numeroControlePNCP === numero) ?? null,
   });
 }

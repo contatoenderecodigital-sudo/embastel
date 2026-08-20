@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ItemDaLista, Proposta } from "@/lib/casarProdutos";
 import type { DisputaCalculada, LoteCalculado } from "@/lib/disputaDb";
+import type { Sugestao } from "@/lib/cotacoesDb";
 
 type LicitacaoDaLista = {
   numeroControlePNCP: string;
@@ -46,6 +47,9 @@ export default function DisputaPage() {
   const [licitacoes, setLicitacoes] = useState<LicitacaoDaLista[] | null>(null);
   const [escolhida, setEscolhida] = useState<string | null>(null);
   const [disputa, setDisputa] = useState<DisputaCalculada | null>(null);
+  // Quem já cotou cada produto antes, por lote sem custo. Vem do histórico de
+  // cotações, então a cotação feita num edital serve no próximo.
+  const [sugestoes, setSugestoes] = useState<Record<string, Sugestao[]>>({});
   const [carregandoDisputa, setCarregandoDisputa] = useState(false);
   const [modoPregao, setModoPregao] = useState(false);
   const [busca, setBusca] = useState("");
@@ -77,6 +81,7 @@ export default function DisputaPage() {
       const res = await fetch(`/api/disputa/${encodeURIComponent(numero)}`);
       const d = await res.json();
       setDisputa(d.disputa);
+      setSugestoes(d.sugestoes ?? {});
     } catch {
       setErro("Não deu pra carregar a planilha.");
     } finally {
@@ -108,7 +113,15 @@ export default function DisputaPage() {
       setErro(d.error ?? "Não deu pra salvar.");
       return null;
     }
-    if (d.disputa) setDisputa(d.disputa);
+    if (d.disputa) {
+      setDisputa(d.disputa);
+      // O histórico muda a cada custo preenchido; recarrega pra sugestão do
+      // lote de baixo já refletir o que acabou de ser gravado.
+      fetch(`/api/disputa/${encodeURIComponent(escolhida)}`)
+        .then((r) => r.json())
+        .then((x) => setSugestoes(x.sugestoes ?? {}))
+        .catch(() => {});
+    }
     return d;
   }
 
@@ -692,6 +705,33 @@ export default function DisputaPage() {
                                 semCusto ? "border-amber-400 bg-amber-50" : ""
                               }`}
                             />
+                            {/* Quem já cotou este produto antes. Clicar copia
+                                preço, fornecedor e marca de uma vez — é o que
+                                faz a cotação de um edital servir no próximo. */}
+                            {semCusto &&
+                              (sugestoes[l.id] ?? []).map((sug) => (
+                                <button
+                                  key={sug.id}
+                                  onClick={() =>
+                                    chamar("PATCH", {
+                                      loteId: l.id,
+                                      custoUnitario: sug.precoUnitario,
+                                      fornecedor: sug.fornecedor,
+                                      marca: sug.marca,
+                                    })
+                                  }
+                                  title={`${sug.fornecedor} cotou ${brl(sug.precoUnitario)} para ${sug.quantidadeCotada.toLocaleString("pt-BR")} ${sug.unidade}`}
+                                  className="mt-1 block w-full rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-left text-[10px] leading-tight text-emerald-800 hover:bg-emerald-100"
+                                >
+                                  <b className="font-bold">{brl(sug.precoUnitario)}</b>{" "}
+                                  {sug.fornecedor}
+                                  {sug.quantidadeDiferente && (
+                                    <span className="block text-amber-700">
+                                      cotado p/ {sug.quantidadeCotada.toLocaleString("pt-BR")}
+                                    </span>
+                                  )}
+                                </button>
+                              ))}
                           </td>
                           <td className="px-3 py-2">
                             <input

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { calcularPrecos, margemNoPreco, PADROES } from "./catalogoDb";
+import { registrarCotacao } from "./cotacoesDb";
 import { jsonStore } from "./jsonStore";
 import { buscarItens } from "./pncpItens";
 
@@ -319,14 +320,39 @@ export async function atualizarLote(
   loteId: string,
   entrada: EntradaLote
 ): Promise<DisputaCalculada | null> {
-  return store.update((data) => {
+  const resultado = await store.update((data) => {
     const d = data.disputas.find((x) => x.numeroControlePNCP === numero);
     const l = d?.lotes.find((x) => x.id === loteId);
     if (!d || !l) return null;
     aplicarLote(l, entrada);
     d.atualizadoEm = agora();
-    return montar(d);
+    return { disputa: montar(d), lote: { ...l } };
   });
+
+  if (!resultado) return null;
+
+  // Preencher o custo aqui também guarda a cotação no histórico, pra ela
+  // servir no próximo edital que pedir o mesmo produto. É automático de
+  // propósito: quem usa a tela pediu pra não ter que cadastrar produto em
+  // formulário nenhum (ver cotacoesDb.ts).
+  //
+  // Fora da transação acima: são dois arquivos diferentes, e a fila do
+  // jsonStore é por arquivo — chamar de dentro não travaria, mas deixaria a
+  // gravação das disputas presa esperando a das cotações sem necessidade.
+  const l = resultado.lote;
+  if (entrada.custoUnitario !== undefined && l.custoUnitario > 0 && l.fornecedor) {
+    await registrarCotacao({
+      produto: l.descricao,
+      marca: l.marca,
+      fornecedor: l.fornecedor,
+      precoUnitario: l.custoUnitario,
+      unidade: l.unidade,
+      quantidadeCotada: l.quantidade,
+      numeroControlePNCP: numero,
+    });
+  }
+
+  return resultado.disputa;
 }
 
 export async function removerLote(

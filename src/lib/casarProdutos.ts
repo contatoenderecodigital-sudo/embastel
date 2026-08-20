@@ -79,7 +79,7 @@ const RUIDO = new Set([
   "minimo", "minima", "maximo", "maxima", "cor", "medindo", "contendo",
 ]);
 
-function tokens(texto: string): string[] {
+export function tokens(texto: string): string[] {
   const normal = normalizarTexto(texto)
     // separa dígito de letra: "300ml" -> "300 ml", "5l" -> "5 l"
     .replace(/(\d)([a-z])/g, "$1 $2")

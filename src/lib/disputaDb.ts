@@ -35,8 +35,17 @@ export type LoteDisputa = {
   /** Preço de referência do órgão, por unidade. Vem do PNCP. */
   referenciaUnitaria: number | null;
 
-  /** De quem veio a cotação. Texto livre: pode ser um nome da agenda ou não. */
+  /** De quem veio a cotação — a empresa. Texto livre. */
   fornecedor: string;
+  /**
+   * A marca do produto ofertado.
+   *
+   * Campo separado do fornecedor de propósito: são coisas diferentes e o
+   * pregão cobra as duas. A proposta tem que declarar a marca item por item, e
+   * um mesmo fornecedor trabalha com várias (o Gota Limpa e o Mileva chegaram
+   * na mesma lista). Declarar marca errada, ou não declarar, desclassifica.
+   */
+  marca: string;
   /** Quanto o fornecedor cobra por unidade NESSA quantidade. */
   custoUnitario: number;
   /** Frete do lote inteiro. É rateado pela quantidade na hora da conta. */
@@ -124,6 +133,9 @@ export function calcularLote(l: LoteDisputa): LoteCalculado {
 
   return {
     ...l,
+    // Lote gravado antes do campo existir vem sem marca; sem isso a tela
+    // receberia undefined e quebraria no .trim() do formulário.
+    marca: l.marca ?? "",
     custoTotalUnitario: custoTotal,
     pisoUnitario: precoMinimo,
     empateUnitario: precoEmpate,
@@ -240,6 +252,7 @@ function aplicarLote(l: LoteDisputa, e: EntradaLote): void {
     l.referenciaUnitaria = Number.isFinite(n) && n > 0 ? n : null;
   }
   if (e.fornecedor !== undefined) l.fornecedor = e.fornecedor.trim();
+  if (e.marca !== undefined) l.marca = e.marca.trim();
   if (e.custoUnitario !== undefined) l.custoUnitario = Math.max(0, num(e.custoUnitario));
   if (e.freteTotal !== undefined) l.freteTotal = Math.max(0, num(e.freteTotal));
   if (e.percentualImpostos !== undefined) {
@@ -285,6 +298,7 @@ export async function adicionarLote(
       quantidade: 0,
       referenciaUnitaria: null,
       fornecedor: "",
+      marca: "",
       custoUnitario: 0,
       freteTotal: 0,
       percentualImpostos: d.impostoPadrao,
@@ -364,6 +378,7 @@ export async function importarDoPncp(
         quantidade: item.quantidade,
         referenciaUnitaria: item.valorUnitarioEstimado,
         fornecedor: "",
+        marca: "",
         custoUnitario: 0,
         freteTotal: 0,
         percentualImpostos: d.impostoPadrao,

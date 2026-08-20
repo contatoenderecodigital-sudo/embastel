@@ -607,6 +607,7 @@ export default function DisputaPage() {
                   {!modoPregao && (
                     <>
                       <th className="px-3 py-2 text-left">Fornecedor</th>
+                      <th className="px-3 py-2 text-left">Marca</th>
                       <th className="px-3 py-2 text-right">Custo un.</th>
                       <th className="px-3 py-2 text-right">Frete</th>
                       <th className="px-3 py-2 text-right">Imp%</th>
@@ -644,6 +645,11 @@ export default function DisputaPage() {
                         <div className="line-clamp-2" title={l.descricao}>
                           {l.descricao || "sem descrição"}
                         </div>
+                        {l.marca && (
+                          <div className="text-[10.5px] font-semibold text-neutral-500">
+                            marca: {l.marca}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-neutral-600">
                         {l.quantidade.toLocaleString("pt-BR")} {l.unidade}
@@ -658,6 +664,15 @@ export default function DisputaPage() {
                                 salvarLote(l.id, "fornecedor", e.target.value)
                               }
                               placeholder="quem cotou"
+                              className="w-28 rounded border border-neutral-300 px-1.5 py-1 text-[12px] outline-none focus:border-brand"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              defaultValue={l.marca}
+                              onBlur={(e) => salvarLote(l.id, "marca", e.target.value)}
+                              placeholder="marca ofertada"
+                              title="O pregão exige declarar a marca item por item"
                               className="w-28 rounded border border-neutral-300 px-1.5 py-1 text-[12px] outline-none focus:border-brand"
                             />
                           </td>

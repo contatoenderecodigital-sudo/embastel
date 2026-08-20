@@ -51,6 +51,26 @@ function agora(): string {
 }
 
 /**
+ * O nome do produto dentro da descrição do edital.
+ *
+ * A descrição vem inteira: "LIMPA VIDRO 500 ML - Aspecto físico: líquido,
+ * composição: lauril éter sulfato de sódio, unidade de fornecimento: frasco".
+ * Guardar isso todo envenena a comparação — palavras como "embalagem",
+ * "composição", "litros", "unidade" e "limpeza" aparecem em quase todo produto
+ * de limpeza, e metade delas basta pra bater. Medido em 20/08/2026: o limpa
+ * vidro passou a ser sugerido pra água sanitária, amaciante, detergente e até
+ * saco plástico em bobina.
+ *
+ * O nome de verdade está sempre na cabeça da descrição, antes do travessão ou
+ * do primeiro ponto. É só ele que fica.
+ */
+export function nomeDoProduto(descricao: string): string {
+  const bruto = (descricao ?? "").replace(/\s+/g, " ").trim();
+  const cabeca = bruto.split(/\s+[-–—]\s+|[.,;:]/)[0] ?? bruto;
+  return (cabeca || bruto).slice(0, 60).trim();
+}
+
+/**
  * Chave de uma cotação: fornecedor + produto + quantidade.
  *
  * Os três juntos, porque o mesmo fornecedor dá preços diferentes pra
@@ -84,7 +104,7 @@ export type EntradaCotacao = {
 export async function registrarCotacao(
   entrada: EntradaCotacao
 ): Promise<Cotacao | null> {
-  const produto = (entrada.produto ?? "").trim();
+  const produto = nomeDoProduto(entrada.produto ?? "");
   const fornecedor = (entrada.fornecedor ?? "").trim();
   const preco = Number(entrada.precoUnitario);
 
@@ -149,11 +169,7 @@ export type Sugestao = Cotacao & {
   quantidadeDiferente: boolean;
 };
 
-// Mesmo critério do casamento da lista colada: metade das palavras e no mínimo
-// duas. Menos que isso, "papel branco" casaria papel higiênico com pano de
-// prato.
 const NOTA_MINIMA = 0.5;
-const ACERTOS_MINIMOS = 2;
 
 /**
  * Cotações que servem pra este lote, da mais barata pra mais cara.
@@ -166,19 +182,27 @@ export async function sugerirParaLote(
   descricao: string,
   quantidadeDoLote = 0
 ): Promise<Sugestao[]> {
-  const alvo = tokens(descricao);
+  // Compara cabeça com cabeça: do lado do lote a descrição também vem inteira,
+  // e o nome do produto está no começo dela.
+  const alvo = tokens(nomeDoProduto(descricao));
   if (alvo.length === 0) return [];
+
+  const bate = (a: string, b: string) =>
+    a === b || b.startsWith(radical(a)) || a.startsWith(radical(b));
 
   const saida: Sugestao[] = [];
   for (const c of await listCotacoes()) {
     const meus = tokens(c.produto);
     if (meus.length === 0) continue;
 
-    const casaram = meus.filter((t) =>
-      alvo.some((d) => d === t || d.startsWith(radical(t)) || t.startsWith(radical(d)))
-    );
+    // O substantivo tem que bater. É a primeira palavra do nome, e é o que
+    // separa "limpa vidro 500 ml" de "detergente neutro 500 ml" — sem esta
+    // exigência os dois casam pelo "500", que é metade das palavras de cada um.
+    if (!alvo.some((d) => bate(meus[0], d))) continue;
+
+    const casaram = meus.filter((t) => alvo.some((d) => bate(t, d)));
     const nota = casaram.length / meus.length;
-    if (casaram.length < ACERTOS_MINIMOS || nota < NOTA_MINIMA) continue;
+    if (nota < NOTA_MINIMA) continue;
 
     saida.push({
       ...c,

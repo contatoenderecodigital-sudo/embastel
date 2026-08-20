@@ -90,6 +90,18 @@ const AREAS: Record<Area, { titulo: string; legenda: string; grupos: Grupo[] }> 
             ),
           },
           {
+            // O que cada fornecedor cobra em cada produto — alimentado sozinho
+            // pelo custo preenchido na disputa (ver cotacoesDb.ts).
+            href: "/painel/cotacoes",
+            label: "Preços dos fornecedores",
+            icon: (
+              <>
+                <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8" />
+                <circle cx="15.5" cy="14.5" r="2.2" />
+              </>
+            ),
+          },
+          {
             // Onde se descobre até quanto dá pra baixar em cada lote, com os
             // lotes vindos do próprio edital (ver disputaDb.ts).
             href: "/painel/disputa",

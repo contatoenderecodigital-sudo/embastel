@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEFAULT_KEYWORDS, MODALIDADES } from "@/lib/pncpTypes";
 import type { LicitacaoResultado } from "@/lib/pncpTypes";
 import type { LicitacaoStatus, TrackedLicitacao } from "@/lib/licitacoesTrackingDb";
+import { linkDoEdital } from "@/lib/linkEdital";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -907,7 +908,7 @@ export default function LicitacoesPage() {
 
                   <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <a
-                      href={item.link}
+                      href={linkDoEdital(item.numeroControlePNCP, item.link)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-medium text-brand hover:underline"
@@ -1151,7 +1152,7 @@ export default function LicitacoesPage() {
 
                               <div className="mt-2 flex items-center gap-2 text-[10.5px]">
                                 <a
-                                  href={item.link}
+                                  href={linkDoEdital(item.numeroControlePNCP, item.link)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="font-medium text-brand hover:underline"

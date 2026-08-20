@@ -5,6 +5,7 @@ import { getSettings } from "./settingsDb";
 import { candidateUfsForRadius } from "./geoUtils";
 import { exclusaoQueBateu, palavraQueCombinou } from "./textoUtils";
 import { buscarItens, buscarResultados } from "./pncpItens";
+import { linkDoEdital } from "./linkEdital";
 import { EXCLUSOES_ITEM } from "./pncpTypes";
 import { palavraNoInicio } from "./textoUtils";
 import { lerItens, registrarVarredura } from "./itensDb";
@@ -319,9 +320,11 @@ export async function avancarBackfill(orcamentoMs = 45_000): Promise<RodadaBackf
               uf: bruto.unidadeOrgao?.ufSigla ?? uf,
               modalidade: bruto.modalidadeNome ?? String(modalidade),
               dataEncerramentoProposta: bruto.dataEncerramentoProposta ?? null,
-              link:
-                bruto.linkSistemaOrigem ??
-                `https://pncp.gov.br/app/editais/${bruto.numeroControlePNCP}`,
+              // Tinha dois defeitos aqui: `??` deixa passar string vazia e o
+              // espaço em branco que alguns órgãos publicam, e a URL de
+              // fallback usava o número de controle inteiro, que não é o
+              // formato que o PNCP entende (é cnpj/ano/sequencial).
+              link: linkDoEdital(bruto.numeroControlePNCP, bruto.linkSistemaOrigem),
               palavraCombinada: palavra,
               atualizadoEm: Date.now(),
             });

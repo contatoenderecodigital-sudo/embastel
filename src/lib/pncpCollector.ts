@@ -104,8 +104,11 @@ function paraIndexada(item: PncpItem, vistaEm: number): LicitacaoIndexada {
     valorEstimado: item.valorTotalEstimado ?? null,
     dataPublicacao: item.dataPublicacaoPncp ?? null,
     dataEncerramentoProposta: item.dataEncerramentoProposta ?? null,
+    // .trim() antes do ||: tem órgão que preenche o link com um espaço, e
+    // espaço é truthy — sem o trim o fallback nunca entrava e a tela ficava
+    // com href=" ", que recarrega a própria página em vez de abrir o edital.
     link:
-      item.linkSistemaOrigem ||
+      item.linkSistemaOrigem?.trim() ||
       `https://pncp.gov.br/app/editais/${item.orgaoEntidade?.cnpj}/${item.anoCompra}/${item.sequencialCompra}`,
     lat: null,
     lon: null,

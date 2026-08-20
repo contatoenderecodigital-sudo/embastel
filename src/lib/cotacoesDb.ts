@@ -210,10 +210,20 @@ export async function sugerirParaLote(
     // edital proíbe desclassifica a proposta.
     if (negaAlgumaPalavra(descricao, meus)) continue;
 
-    // O substantivo tem que bater. É a primeira palavra do nome, e é o que
-    // separa "limpa vidro 500 ml" de "detergente neutro 500 ml" — sem esta
-    // exigência os dois casam pelo "500", que é metade das palavras de cada um.
-    if (!alvo.some((d) => bate(meus[0], d))) continue;
+    // TODA palavra do nome do produto tem que aparecer no lote — o
+    // substantivo e os adjetivos.
+    //
+    // Exigir só o substantivo não bastava: "limpa vidro" tem duas palavras, e
+    // bater só o "limpa" já dava nota 0,5, o mínimo. Resultado visto na tela:
+    // o limpa vidro foi oferecido pra LIMPA ALUMÍNIO, LIMPA FORNO, LIMPA PEDRA
+    // e LIMPADOR MULTIUSO. É o adjetivo que diz qual produto é.
+    //
+    // Número fica de fora da exigência porque a capacidade já foi conferida
+    // acima, e o edital costuma pôr o volume em outra coluna: "SAPONÁCEO 300
+    // ML" cotado serve pro lote escrito só como "Saponáceo".
+    const palavras = meus.filter((t) => !/^\d+$/.test(t));
+    if (palavras.length === 0) continue;
+    if (!palavras.every((t) => alvo.some((d) => bate(t, d)))) continue;
 
     const casaram = meus.filter((t) => alvo.some((d) => bate(t, d)));
     const nota = casaram.length / meus.length;

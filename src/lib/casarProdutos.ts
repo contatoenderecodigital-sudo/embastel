@@ -113,7 +113,12 @@ export function tokens(texto: string): string[] {
 export function capacidade(texto: string): number | null {
   const t = normalizarTexto(texto).replace(/(\d)\s+(l|ml|g|kg)\b/g, "$1$2");
   // Primeiro número seguido de unidade. "05 litros" -> 5000; "500ml" -> 500.
-  const m = /(\d+(?:[.,]\d+)?)\s*(litros?|lts?|ml|mls|kg|kgs|gramas?|grs?|g)\b/.exec(t);
+  // "l" e "g" sozinhos ficam no fim da alternância: senão "9l" casaria o "l"
+  // antes de "litros" ter chance, e "500ml" casaria só o "m"... (a ordem aqui
+  // é o que fazia "Balde plástico 9L" não ter capacidade nenhuma reconhecida,
+  // e por isso ele era oferecido pra um lote de balde de 20 litros.)
+  const m =
+    /(\d+(?:[.,]\d+)?)\s*(litros?|lts?|ml|mls|kg|kgs|gramas?|grs?|l|g)\b/.exec(t);
   if (!m) return null;
 
   const valor = Number(m[1].replace(",", "."));

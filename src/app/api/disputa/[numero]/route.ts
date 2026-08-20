@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { analisarLista, casarComLotes } from "@/lib/casarProdutos";
 import {
   adicionarLote,
   atualizarLote,
@@ -58,6 +59,33 @@ export async function POST(
   if (body?.acao === "reaplicar-padroes") {
     const disputa = await reaplicarPadroes(numero);
     return NextResponse.json({ disputa });
+  }
+
+  // Lê a lista de preços colada e devolve com que lote cada item se parece.
+  // NÃO grava: quem confirma é a pessoa na tela (ver casarProdutos.ts).
+  if (body?.acao === "casar-lista") {
+    const disputa = await lerDisputa(numero);
+    const itens = analisarLista(String(body.texto ?? ""));
+    const { propostas, semPar } = casarComLotes(
+      itens,
+      disputa.lotes.filter((l) => !l.descartado)
+    );
+    return NextResponse.json({ lidos: itens.length, propostas, semPar });
+  }
+
+  // Grava o que a pessoa confirmou da tela anterior.
+  if (body?.acao === "aplicar-lista") {
+    const fornecedor = String(body.fornecedor ?? "").trim();
+    const aplicar: Array<{ loteId: string; preco: number }> = body.aplicar ?? [];
+    let disputa = await lerDisputa(numero);
+    for (const a of aplicar) {
+      const r = await atualizarLote(numero, a.loteId, {
+        custoUnitario: Number(a.preco) || 0,
+        ...(fornecedor ? { fornecedor } : {}),
+      });
+      if (r) disputa = r;
+    }
+    return NextResponse.json({ aplicados: aplicar.length, disputa });
   }
 
   return NextResponse.json({ disputa: await adicionarLote(numero, body) });

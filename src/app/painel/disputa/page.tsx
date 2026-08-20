@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ItemDaLista, Proposta } from "@/lib/casarProdutos";
 import type { DisputaCalculada, LoteCalculado } from "@/lib/disputaDb";
 
 type LicitacaoDaLista = {
@@ -52,6 +53,16 @@ export default function DisputaPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
+
+  // Colar a lista do fornecedor. As propostas ficam aqui até alguém confirmar:
+  // preço errado num lote é dinheiro perdido no pregão, então nada é gravado
+  // sem passar por um olho humano.
+  const [colando, setColando] = useState(false);
+  const [textoLista, setTextoLista] = useState("");
+  const [fornecedorLista, setFornecedorLista] = useState("");
+  const [propostas, setPropostas] = useState<Proposta[] | null>(null);
+  const [semPar, setSemPar] = useState<ItemDaLista[]>([]);
+  const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/disputa")
@@ -119,6 +130,42 @@ export default function DisputaPage() {
 
   const salvarLote = (loteId: string, campo: string, valor: unknown) =>
     chamar("PATCH", { loteId, [campo]: valor });
+
+  async function procurarNaLista() {
+    setErro(null);
+    setAviso(null);
+    const d = await chamar("POST", { acao: "casar-lista", texto: textoLista });
+    if (!d) return;
+    setPropostas(d.propostas);
+    setSemPar(d.semPar);
+    // Vem tudo marcado: o normal é a lista estar certa, e desmarcar o que
+    // destoa dá menos trabalho que marcar um por um.
+    setMarcadas(new Set(d.propostas.map((p: Proposta) => p.loteId)));
+    if (d.propostas.length === 0) {
+      setAviso(
+        `Li ${d.lidos} item(ns) da lista, mas nenhum bateu com os lotes deste edital.`
+      );
+    }
+  }
+
+  async function aplicarLista() {
+    if (!propostas) return;
+    const aplicar = propostas
+      .filter((p) => marcadas.has(p.loteId))
+      .map((p) => ({ loteId: p.loteId, preco: p.item.preco }));
+    if (aplicar.length === 0) return;
+    const d = await chamar("POST", {
+      acao: "aplicar-lista",
+      fornecedor: fornecedorLista,
+      aplicar,
+    });
+    if (!d) return;
+    setAviso(`${d.aplicados} lote(s) com o custo preenchido.`);
+    setPropostas(null);
+    setSemPar([]);
+    setColando(false);
+    setTextoLista("");
+  }
 
   const lotesVisiveis = useMemo(() => {
     if (!disputa) return [];
@@ -391,9 +438,163 @@ export default function DisputaPage() {
                 >
                   {importando ? "Buscando…" : "Buscar lotes de novo"}
                 </button>
+                <button
+                  onClick={() => {
+                    setColando(!colando);
+                    setPropostas(null);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold ${
+                    colando
+                      ? "brand-gradient text-white shadow-sm"
+                      : "border border-brand/40 bg-brand/5 text-brand hover:bg-brand/10"
+                  }`}
+                >
+                  Colar lista do fornecedor
+                </button>
               </>
             )}
           </div>
+
+          {/* ------------------------------------ colar a lista do fornecedor */}
+          {colando && !modoPregao && (
+            <div className="space-y-3 rounded-2xl border-2 border-brand/40 bg-white p-5 shadow-md">
+              <div className="text-sm font-semibold text-neutral-900">
+                Cole a lista que o fornecedor mandou
+              </div>
+              <p className="text-[12px] text-neutral-500">
+                Um item por linha, com o preço no fim — como vem do WhatsApp ou
+                colado do Excel. O painel acha sozinho com que lote cada um se
+                parece; nada é gravado sem você confirmar.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={fornecedorLista}
+                  onChange={(e) => setFornecedorLista(e.target.value)}
+                  placeholder="Nome do fornecedor (vai junto nos lotes)"
+                  className="min-w-[220px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+                />
+              </div>
+
+              <textarea
+                value={textoLista}
+                onChange={(e) => setTextoLista(e.target.value)}
+                rows={7}
+                placeholder={
+                  "7922 - Acendedor Lume (200)   6,99\n8913 - Bacia 12lts c/ alça   7,49\nÁlcool 70 1 litro   5,00"
+                }
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 font-mono text-[12px] outline-none focus:border-brand"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={procurarNaLista}
+                  disabled={!textoLista.trim()}
+                  className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                >
+                  Procurar nos lotes
+                </button>
+                <button
+                  onClick={() => {
+                    setColando(false);
+                    setPropostas(null);
+                  }}
+                  className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              {propostas && propostas.length > 0 && (
+                <div className="space-y-2 border-t border-neutral-200 pt-3">
+                  <div className="text-[12.5px] font-semibold text-neutral-800">
+                    {propostas.length} item(ns) parecem bater. Confira antes de
+                    aplicar:
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-neutral-200">
+                    <table className="w-full min-w-[640px] text-[12px]">
+                      <thead className="bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500">
+                        <tr>
+                          <th className="px-2 py-2" />
+                          <th className="px-3 py-2 text-left">Da lista dele</th>
+                          <th className="px-3 py-2 text-right">Preço</th>
+                          <th className="px-3 py-2 text-left">Vai pro lote</th>
+                          <th className="px-3 py-2 text-right">Ref. órgão</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {propostas.map((p) => (
+                          <tr
+                            key={p.loteId}
+                            className="border-t border-neutral-100 align-top"
+                          >
+                            <td className="px-2 py-2">
+                              <input
+                                type="checkbox"
+                                checked={marcadas.has(p.loteId)}
+                                onChange={() => {
+                                  const nova = new Set(marcadas);
+                                  if (nova.has(p.loteId)) nova.delete(p.loteId);
+                                  else nova.add(p.loteId);
+                                  setMarcadas(nova);
+                                }}
+                              />
+                            </td>
+                            <td className="max-w-[220px] px-3 py-2 text-neutral-700">
+                              {p.item.descricao}
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                              {brl(p.item.preco)}
+                            </td>
+                            <td className="max-w-[260px] px-3 py-2">
+                              <div className="font-semibold text-neutral-800">
+                                Lote {p.numeroLote}
+                                <span className="ml-1.5 font-normal text-neutral-400">
+                                  {p.quantidade.toLocaleString("pt-BR")} {p.unidade}
+                                </span>
+                              </div>
+                              <div className="line-clamp-2 text-neutral-500">
+                                {p.descricaoLote}
+                              </div>
+                              <div className="mt-0.5 text-[10.5px] text-neutral-400">
+                                bateu em: {p.palavras.join(", ")}
+                              </div>
+                              {p.jaTinhaCusto && (
+                                <div className="text-[10.5px] font-semibold text-amber-700">
+                                  esse lote já tinha custo — vai ser trocado
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-neutral-500">
+                              {p.referenciaUnitaria != null
+                                ? brl(p.referenciaUnitaria)
+                                : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {semPar.length > 0 && (
+                    <p className="text-[11.5px] text-neutral-500">
+                      {semPar.length} item(ns) da lista não bateram com lote
+                      nenhum: {semPar.slice(0, 4).map((i) => i.descricao).join("; ")}
+                      {semPar.length > 4 && "…"}
+                    </p>
+                  )}
+
+                  <button
+                    onClick={aplicarLista}
+                    disabled={marcadas.size === 0}
+                    className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                  >
+                    Preencher o custo de {marcadas.size} lote(s)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ----------------------------------------------------- a tabela -- */}
           <div className="overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">

@@ -21,7 +21,7 @@ import { normalizarTexto } from "./textoUtils";
  * outro extremo: com piso 4, "prato" virava "prat" e casava com
  * "prateleiras" — testado, aparecia mesmo.
  */
-function radical(palavra: string): string {
+export function radical(palavra: string): string {
   return palavra.slice(0, Math.max(5, palavra.length - 1));
 }
 

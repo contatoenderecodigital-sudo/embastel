@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { radical } from "./casarCategorias";
-import { tokens } from "./casarProdutos";
+import { capacidadeConflita, negaAlgumaPalavra, tokens } from "./casarProdutos";
 import { jsonStore } from "./jsonStore";
 
 // O histórico de cotação: quem cotou o quê, por quanto, e pra que quantidade.
@@ -171,6 +171,9 @@ export type Sugestao = Cotacao & {
 
 const NOTA_MINIMA = 0.5;
 
+/** Fornecedor que na verdade é um lembrete de "falta preencher". */
+export const PLACEHOLDER = /preencher|a confirmar|^\s*$/i;
+
 /**
  * Cotações que servem pra este lote, da mais barata pra mais cara.
  *
@@ -192,8 +195,20 @@ export async function sugerirParaLote(
 
   const saida: Sugestao[] = [];
   for (const c of await listCotacoes()) {
+    // Cotação sem fornecedor de verdade não vira sugestão: ela existe pra
+    // alguém completar, e oferecer ela pra outro lote espalha o buraco.
+    if (PLACEHOLDER.test(c.fornecedor)) continue;
+
     const meus = tokens(c.produto);
     if (meus.length === 0) continue;
+
+    // 1 litro e 5 litros têm as mesmas palavras. Sem esta checagem o preço do
+    // galão de 5 L entrava num lote de 1 L e o piso saía cinco vezes maior.
+    if (capacidadeConflita(c.produto, descricao)) continue;
+
+    // O edital que diz "SEM CLORO" não pode receber cloro. Oferecer o que o
+    // edital proíbe desclassifica a proposta.
+    if (negaAlgumaPalavra(descricao, meus)) continue;
 
     // O substantivo tem que bater. É a primeira palavra do nome, e é o que
     // separa "limpa vidro 500 ml" de "detergente neutro 500 ml" — sem esta

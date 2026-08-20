@@ -43,6 +43,47 @@ function paraNumero(texto: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+type Ordem = { campo: string; desc: boolean } | null;
+
+/**
+ * Cabeçalho clicável que ordena a tabela.
+ *
+ * Fica fora do componente da página de propósito: definido lá dentro, ele era
+ * recriado a cada render e o React remontava a coluna inteira em vez de só
+ * atualizar — o eslint acusa isso (react-hooks/static-components), e o efeito
+ * prático é o input da linha perder o foco enquanto se digita.
+ */
+function Cabecalho({
+  campo,
+  ordem,
+  aoOrdenar,
+  children,
+  className = "",
+}: {
+  campo: string;
+  ordem: Ordem;
+  aoOrdenar: (campo: string) => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const ativa = ordem?.campo === campo;
+  return (
+    <th className={className}>
+      <button
+        onClick={() => aoOrdenar(campo)}
+        className={`flex w-full items-center gap-0.5 whitespace-nowrap hover:text-brand ${
+          className.includes("text-right") ? "justify-end" : ""
+        } ${ativa ? "text-brand" : ""}`}
+      >
+        {children}
+        <span className={ativa ? "" : "opacity-25"}>
+          {ativa && !ordem.desc ? "▲" : "▼"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export default function DisputaPage() {
   const [licitacoes, setLicitacoes] = useState<LicitacaoDaLista[] | null>(null);
   const [escolhida, setEscolhida] = useState<string | null>(null);
@@ -54,6 +95,10 @@ export default function DisputaPage() {
   const [modoPregao, setModoPregao] = useState(false);
   const [busca, setBusca] = useState("");
   const [soCotados, setSoCotados] = useState(false);
+  // Ordenação por coluna. Clicar no cabeçalho alterna crescente/decrescente;
+  // clicar numa coluna nova começa pela ordem que interessa nela (piso e folga
+  // do maior pro menor, porque é onde está o dinheiro).
+  const [ordem, setOrdem] = useState<Ordem>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -183,17 +228,75 @@ export default function DisputaPage() {
   const lotesVisiveis = useMemo(() => {
     if (!disputa) return [];
     const termo = busca.trim().toLowerCase();
-    return disputa.lotes.filter((l) => {
+    const filtrados = disputa.lotes.filter((l) => {
       if (l.descartado) return false;
       if (soCotados && l.custoUnitario <= 0) return false;
       if (!termo) return true;
       return (
         l.numero.toLowerCase().includes(termo) ||
         l.descricao.toLowerCase().includes(termo) ||
-        l.fornecedor.toLowerCase().includes(termo)
+        l.fornecedor.toLowerCase().includes(termo) ||
+        l.marca.toLowerCase().includes(termo)
       );
     });
-  }, [disputa, busca, soCotados]);
+
+    if (!ordem) {
+      // Sem ordenação escolhida vale a ordem do edital, que é como a sala de
+      // disputa chama os lotes.
+      return filtrados.sort(
+        (a, b) => (Number(a.numero) || 0) - (Number(b.numero) || 0)
+      );
+    }
+
+    const valor = (l: LoteCalculado): number | string => {
+      switch (ordem.campo) {
+        case "numero": return Number(l.numero) || 0;
+        case "descricao": return l.descricao;
+        case "quantidade": return l.quantidade;
+        case "fornecedor": return l.fornecedor;
+        case "marca": return l.marca;
+        case "custo": return l.custoUnitario;
+        case "frete": return l.freteTotal;
+        case "imposto": return l.percentualImpostos;
+        case "margem": return l.margemAlvo;
+        case "referencia": return l.referenciaUnitaria ?? -1;
+        // Lote sem custo não tem piso de verdade: manda pro fim nas duas
+        // direções em vez de fingir que o piso é zero e liderar a lista.
+        case "piso": return l.custoUnitario > 0 ? l.pisoUnitario : (ordem.desc ? -1 : Infinity);
+        case "empate": return l.custoUnitario > 0 ? l.empateUnitario : (ordem.desc ? -1 : Infinity);
+        case "folga": return l.folgaPercentual ?? (ordem.desc ? -Infinity : Infinity);
+        case "lance": return l.meuLance ?? -1;
+        case "faturamento": return l.vale ? l.faturamentoPrevisto : -1;
+        case "lucro": return l.vale ? l.lucroPrevisto : -1;
+        default: return 0;
+      }
+    };
+
+    return filtrados.sort((a, b) => {
+      const va = valor(a), vb = valor(b);
+      const cmp =
+        typeof va === "string" || typeof vb === "string"
+          ? String(va).localeCompare(String(vb), "pt-BR")
+          : va - vb;
+      return ordem.desc ? -cmp : cmp;
+    });
+  }, [disputa, busca, soCotados, ordem]);
+
+  // Piso, folga, quantidade e referência começam do maior — é o que se procura
+  // quando se clica neles. Texto começa de A a Z.
+  const COMECA_DECRESCENTE = new Set([
+    "quantidade", "referencia", "piso", "empate", "folga", "custo", "lance",
+    "faturamento", "lucro",
+  ]);
+
+  function ordenarPor(campo: string) {
+    setOrdem((atual) =>
+      atual?.campo === campo
+        ? { campo, desc: !atual.desc }
+        : { campo, desc: COMECA_DECRESCENTE.has(campo) }
+    );
+  }
+
 
   const numInput =
     "w-full rounded border border-neutral-300 px-1.5 py-1 text-right text-[12px] tabular-nums outline-none focus:border-brand";
@@ -349,22 +452,28 @@ export default function DisputaPage() {
           {t && (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { r: "Lotes", v: String(t.lotes), a: "no edital" },
                 {
                   r: "Cotados",
                   v: `${t.cotados}/${t.lotes}`,
-                  a: t.semCusto ? `${t.semCusto} sem custo ainda` : "todos com custo",
-                  forte: t.semCusto === 0,
+                  a: `${t.semCusto} lote(s) sem custo ainda`,
                 },
                 {
-                  r: "Piso da proposta",
-                  v: brl(t.pisoTotal),
-                  a: "soma dos lotes cotados",
+                  r: "Fecham",
+                  v: String(t.valem),
+                  a: t.naoFecham
+                    ? `${t.naoFecham} cotado(s) dão prejuízo`
+                    : "nenhum dá prejuízo",
                 },
                 {
-                  r: "Referência do órgão",
-                  v: brl(t.referenciaTotal),
-                  a: "o que eles estimaram",
+                  r: "Faturamento",
+                  v: brl(t.faturamentoPrevisto),
+                  a: "só os lotes que fecham",
+                },
+                {
+                  r: "Lucro",
+                  v: brl(t.lucroPrevisto),
+                  a: `no piso sobra ${brl(t.lucroNoPiso)}`,
+                  forte: true,
                 },
               ].map((c) => (
                 <div
@@ -611,28 +720,28 @@ export default function DisputaPage() {
 
           {/* ----------------------------------------------------- a tabela -- */}
           <div className="overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
-            <table className="w-full min-w-[720px] text-[12px]">
+            <table className="w-full min-w-[900px] text-[12px]">
               <thead className="border-b border-neutral-200 bg-neutral-50 text-[11px] uppercase tracking-wide text-neutral-500">
                 <tr>
-                  <th className="px-3 py-2 text-left">Lote</th>
-                  <th className="px-3 py-2 text-left">Descrição</th>
-                  <th className="px-3 py-2 text-right">Qtd</th>
+                  <Cabecalho campo="numero" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Lote</Cabecalho>
+                  <Cabecalho campo="descricao" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Descrição</Cabecalho>
+                  <Cabecalho campo="quantidade" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Qtd</Cabecalho>
                   {!modoPregao && (
                     <>
-                      <th className="px-3 py-2 text-left">Fornecedor</th>
-                      <th className="px-3 py-2 text-left">Marca</th>
-                      <th className="px-3 py-2 text-right">Custo un.</th>
-                      <th className="px-3 py-2 text-right">Frete</th>
-                      <th className="px-3 py-2 text-right">Imp%</th>
-                      <th className="px-3 py-2 text-right">Marg%</th>
+                      <Cabecalho campo="fornecedor" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Fornecedor</Cabecalho>
+                      <Cabecalho campo="marca" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Marca</Cabecalho>
+                      <Cabecalho campo="custo" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Custo un.</Cabecalho>
+                      <Cabecalho campo="frete" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Frete</Cabecalho>
+                      <Cabecalho campo="imposto" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Imp%</Cabecalho>
+                      <Cabecalho campo="margem" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Marg%</Cabecalho>
                     </>
                   )}
-                  <th className="px-3 py-2 text-right">Ref. órgão</th>
-                  <th className="bg-brand/5 px-3 py-2 text-right font-bold text-brand">
-                    Piso
-                  </th>
-                  <th className="px-3 py-2 text-right">Empate</th>
-                  <th className="px-3 py-2 text-right">Meu lance</th>
+                  <Cabecalho campo="referencia" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Ref. órgão</Cabecalho>
+                  <Cabecalho campo="piso" ordem={ordem} aoOrdenar={ordenarPor} className="bg-brand/5 px-3 py-2 text-right font-bold text-brand">Piso</Cabecalho>
+                  <Cabecalho campo="empate" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Empate</Cabecalho>
+                  <Cabecalho campo="lance" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Meu lance</Cabecalho>
+                  <Cabecalho campo="faturamento" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Fatura</Cabecalho>
+                  <Cabecalho campo="lucro" ordem={ordem} aoOrdenar={ordenarPor} className="bg-emerald-50 px-3 py-2 text-right font-bold text-emerald-700">Lucro</Cabecalho>
                   {!modoPregao && <th className="px-2 py-2" />}
                 </tr>
               </thead>
@@ -720,14 +829,22 @@ export default function DisputaPage() {
                                       marca: sug.marca,
                                     })
                                   }
-                                  title={`${sug.fornecedor} cotou ${brl(sug.precoUnitario)} para ${sug.quantidadeCotada.toLocaleString("pt-BR")} ${sug.unidade}`}
-                                  className="mt-1 block w-full rounded border border-emerald-300 bg-emerald-50 px-1 py-0.5 text-left text-[10px] leading-tight text-emerald-800 hover:bg-emerald-100"
+                                  title={
+                                    `${sug.fornecedor} cotou ${brl(sug.precoUnitario)} quando o pedido era de ` +
+                                    `${sug.quantidadeCotada.toLocaleString("pt-BR")} ${sug.unidade}. ` +
+                                    `Aqui o edital pede ${l.quantidade.toLocaleString("pt-BR")}. Clique pra usar esse preço.`
+                                  }
+                                  className="mt-0.5 block max-w-[110px] truncate rounded border border-emerald-300 bg-emerald-50 px-1 text-left text-[10px] leading-snug text-emerald-800 hover:bg-emerald-100"
                                 >
                                   <b className="font-bold">{brl(sug.precoUnitario)}</b>{" "}
                                   {sug.fornecedor}
+                                  {/* O preço foi dado pra um pedido bem maior que
+                                      este lote. Comprar menos costuma sair mais
+                                      caro, então serve de teto e não de certeza. */}
                                   {sug.quantidadeDiferente && (
                                     <span className="block text-amber-700">
-                                      cotado p/ {sug.quantidadeCotada.toLocaleString("pt-BR")}
+                                      era p/ {sug.quantidadeCotada.toLocaleString("pt-BR")}, aqui{" "}
+                                      {l.quantidade.toLocaleString("pt-BR")}
                                     </span>
                                   )}
                                 </button>
@@ -816,6 +933,28 @@ export default function DisputaPage() {
                         )}
                       </td>
 
+                      <td className="px-3 py-2 text-right tabular-nums text-neutral-600">
+                        {l.vale ? brl(l.faturamentoPrevisto) : "—"}
+                      </td>
+                      <td
+                        className={`bg-emerald-50 px-3 py-2 text-right font-bold tabular-nums ${
+                          modoPregao ? "text-[15px]" : "text-[13px]"
+                        } ${l.lucroPrevisto > 0 ? "text-emerald-700" : "text-neutral-400"}`}
+                      >
+                        {l.vale ? (
+                          <>
+                            {brl(l.lucroPrevisto)}
+                            <div className="text-[10px] font-medium text-neutral-500">
+                              no piso {brl(l.lucroNoPiso)}
+                            </div>
+                          </>
+                        ) : semCusto ? (
+                          "—"
+                        ) : (
+                          <span className="text-red-600">não fecha</span>
+                        )}
+                      </td>
+
                       {!modoPregao && (
                         <td className="px-2 py-2 text-right">
                           <button
@@ -831,6 +970,33 @@ export default function DisputaPage() {
                   );
                 })}
               </tbody>
+              {/* Soma o que está na tela agora: com um filtro ligado, é o
+                  total daquele recorte, e não do edital inteiro. */}
+              <tfoot className="border-t-2 border-neutral-200 bg-neutral-50 font-semibold">
+                <tr>
+                  <td className="px-3 py-2" colSpan={modoPregao ? 3 : 9}>
+                    {lotesVisiveis.filter((l) => l.vale).length} lote(s) fecham
+                    {lotesVisiveis.length !== (disputa?.totais.lotes ?? 0) &&
+                      " (do filtro atual)"}
+                  </td>
+                  <td className="px-3 py-2" colSpan={3} />
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {brl(
+                      lotesVisiveis
+                        .filter((l) => l.vale)
+                        .reduce((s, l) => s + l.faturamentoPrevisto, 0)
+                    )}
+                  </td>
+                  <td className="bg-emerald-50 px-3 py-2 text-right tabular-nums text-emerald-700">
+                    {brl(
+                      lotesVisiveis
+                        .filter((l) => l.vale)
+                        .reduce((s, l) => s + l.lucroPrevisto, 0)
+                    )}
+                  </td>
+                  {!modoPregao && <td />}
+                </tr>
+              </tfoot>
             </table>
           </div>
 

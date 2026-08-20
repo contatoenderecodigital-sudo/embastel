@@ -113,6 +113,23 @@ export type LoteCalculado = LoteDisputa & {
   margemDoLance: number | null;
   /** O lance já passou do piso. */
   abaixoDoPiso: boolean;
+
+  /**
+   * O preço em que a conta de faturamento e lucro é feita.
+   *
+   * É o lance que já foi dado, quando existe; senão o preço de referência do
+   * órgão. Referência é o teto — a disputa só empurra pra baixo — então o que
+   * sai daqui é o melhor caso, e não uma promessa.
+   */
+  precoConsiderado: number | null;
+  /** Quanto a prefeitura paga por este lote nesse preço. */
+  faturamentoPrevisto: number;
+  /** O que sobra depois do imposto e do custo. É o lucro do lote. */
+  lucroPrevisto: number;
+  /** O mesmo, se a disputa empurrar até o piso — o pior caso aceitável. */
+  lucroNoPiso: number;
+  /** O lote fecha: dá pra vender acima do piso. */
+  vale: boolean;
 };
 
 export function calcularLote(l: LoteDisputa): LoteCalculado {
@@ -131,6 +148,9 @@ export function calcularLote(l: LoteDisputa): LoteCalculado {
     l.referenciaUnitaria && l.referenciaUnitaria > 0
       ? (l.referenciaUnitaria - precoMinimo) / l.referenciaUnitaria
       : null;
+
+  // O lance dado manda; sem ele, a referência do órgão.
+  const preco = l.meuLance ?? l.referenciaUnitaria;
 
   return {
     ...l,
@@ -157,6 +177,21 @@ export function calcularLote(l: LoteDisputa): LoteCalculado {
     // lance pareceria seguro. Nesse estado nunca se acusa "abaixo do piso".
     abaixoDoPiso:
       l.meuLance != null && l.custoUnitario > 0 && l.meuLance < precoMinimo,
+
+    precoConsiderado: preco,
+    faturamentoPrevisto: preco != null ? preco * l.quantidade : 0,
+    // Lucro = o que entra menos o imposto sobre a venda, menos o que se pagou.
+    // O imposto incide sobre o preço de venda, não sobre o custo.
+    lucroPrevisto:
+      preco != null && l.custoUnitario > 0
+        ? (preco * (1 - (l.percentualImpostos || 0) / 100) - custoTotal) * l.quantidade
+        : 0,
+    lucroNoPiso:
+      l.custoUnitario > 0
+        ? (precoMinimo * (1 - (l.percentualImpostos || 0) / 100) - custoTotal) *
+          l.quantidade
+        : 0,
+    vale: l.custoUnitario > 0 && folga != null && folga > 0,
   };
 }
 
@@ -167,31 +202,43 @@ export type DisputaCalculada = Omit<Disputa, "lotes"> & {
     cotados: number;
     semCusto: number;
     abaixoDoPiso: number;
-    /** Soma do piso de todos os lotes cotados — o mínimo da proposta inteira. */
-    pisoTotal: number;
-    /** Soma da referência do órgão, pra comparar com o piso. */
-    referenciaTotal: number;
+    /** Quantos lotes cotados de fato dão lucro. */
+    valem: number;
+    /** Cotados que não fecham: o preço do fornecedor passou da referência. */
+    naoFecham: number;
+    /**
+     * Faturamento e lucro somando SÓ os lotes que fecham.
+     *
+     * Só os que fecham de propósito: somar lote de prejuízo junto dava um
+     * número que não corresponde a nenhuma decisão real — ninguém vai ofertar
+     * onde perde dinheiro, então esse lote não entra na proposta e não deve
+     * entrar no total.
+     */
+    faturamentoPrevisto: number;
+    lucroPrevisto: number;
+    /** O mesmo lucro, se a disputa empurrar tudo até o piso. */
+    lucroNoPiso: number;
   };
 };
 
 function montar(d: Disputa): DisputaCalculada {
   const lotes = d.lotes.map(calcularLote);
   const valendo = lotes.filter((l) => !l.descartado);
+  const cotados = valendo.filter((l) => l.custoUnitario > 0);
+  const valem = cotados.filter((l) => l.vale);
   return {
     ...d,
     lotes,
     totais: {
       lotes: valendo.length,
-      cotados: valendo.filter((l) => l.custoUnitario > 0).length,
-      semCusto: valendo.filter((l) => l.custoUnitario <= 0).length,
+      cotados: cotados.length,
+      semCusto: valendo.length - cotados.length,
       abaixoDoPiso: valendo.filter((l) => l.abaixoDoPiso).length,
-      pisoTotal: valendo
-        .filter((l) => l.custoUnitario > 0)
-        .reduce((s, l) => s + l.pisoTotal, 0),
-      referenciaTotal: valendo.reduce(
-        (s, l) => s + (l.referenciaUnitaria ?? 0) * l.quantidade,
-        0
-      ),
+      valem: valem.length,
+      naoFecham: cotados.length - valem.length,
+      faturamentoPrevisto: valem.reduce((s, l) => s + l.faturamentoPrevisto, 0),
+      lucroPrevisto: valem.reduce((s, l) => s + l.lucroPrevisto, 0),
+      lucroNoPiso: valem.reduce((s, l) => s + l.lucroNoPiso, 0),
     },
   };
 }

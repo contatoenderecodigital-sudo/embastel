@@ -99,6 +99,66 @@ export function tokens(texto: string): string[] {
   return [...new Set(saida)];
 }
 
+/**
+ * Capacidade da embalagem, normalizada em ml (líquido) ou g (sólido).
+ *
+ * É o que separa produtos que o texto sozinho confunde: "ÁGUA SANITÁRIA 01
+ * LITRO" e "ÁGUA SANITÁRIA 05 LITROS" têm exatamente as mesmas palavras, e
+ * qualquer comparação por palavra casa os dois. Preço de galão de 5 litros
+ * aplicado num lote de 1 litro dá um piso cinco vezes maior que o real.
+ *
+ * Devolve null quando não há capacidade escrita — aí a comparação segue só
+ * pelo texto, que é o certo pra produto que não tem volume (escova, balde).
+ */
+export function capacidade(texto: string): number | null {
+  const t = normalizarTexto(texto).replace(/(\d)\s+(l|ml|g|kg)\b/g, "$1$2");
+  // Primeiro número seguido de unidade. "05 litros" -> 5000; "500ml" -> 500.
+  const m = /(\d+(?:[.,]\d+)?)\s*(litros?|lts?|ml|mls|kg|kgs|gramas?|grs?|g)\b/.exec(t);
+  if (!m) return null;
+
+  const valor = Number(m[1].replace(",", "."));
+  if (!Number.isFinite(valor) || valor <= 0) return null;
+  const un = m[2];
+
+  if (/^(litros?|lts?|l)$/.test(un)) return valor * 1000;
+  if (/^(ml|mls)$/.test(un)) return valor;
+  if (/^(kg|kgs)$/.test(un)) return valor * 1000;
+  return valor; // gramas
+}
+
+/**
+ * As duas capacidades são incompatíveis?
+ *
+ * Só reprova quando AS DUAS existem e são diferentes. Uma descrição sem
+ * capacidade não impede o casamento — muito edital descreve o produto e põe o
+ * volume só na coluna de unidade.
+ *
+ * Tolera 10% porque o edital costuma dizer "capacidade mínima de 12 litros" e
+ * o fornecedor vende como "12,5 L".
+ */
+export function capacidadeConflita(a: string, b: string): boolean {
+  const ca = capacidade(a);
+  const cb = capacidade(b);
+  if (ca == null || cb == null) return false;
+  const maior = Math.max(ca, cb);
+  return Math.abs(ca - cb) / maior > 0.1;
+}
+
+/**
+ * O texto pede explicitamente SEM alguma dessas palavras?
+ *
+ * "ALVEJANTE SEM CLORO" recebia sugestão de cloro gel — o "sem" era ignorado e
+ * a palavra cloro casava normalmente. É o pior tipo de erro possível aqui:
+ * oferecer justamente o que o edital proíbe desclassifica a proposta.
+ */
+export function negaAlgumaPalavra(texto: string, palavras: string[]): boolean {
+  const t = normalizarTexto(texto);
+  for (const p of palavras) {
+    if (new RegExp(`\\bsem\\s+(o\\s+|a\\s+)?${p}`).test(t)) return true;
+  }
+  return false;
+}
+
 export type LoteParaCasar = {
   id: string;
   numero: string;
@@ -153,6 +213,11 @@ export function casarComLotes(
 
     let melhor: Proposta | null = null;
     for (const lote of lotes) {
+      // Mesmas duas travas da sugestão: volume tem que bater, e o edital que
+      // pede "sem cloro" não pode receber cloro.
+      if (capacidadeConflita(item.descricao, lote.descricao)) continue;
+      if (negaAlgumaPalavra(lote.descricao, meus)) continue;
+
       const doLote = tokensDoLote.get(lote.id) ?? [];
       const casaram = meus.filter((t) =>
         doLote.some((d) => d === t || d.startsWith(radical(t)) || t.startsWith(radical(d)))

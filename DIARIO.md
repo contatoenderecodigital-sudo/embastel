@@ -55,17 +55,33 @@ quem entrou no painel já provou que tem a senha, é a mesma porta.
   vai pra `data/deploy.log` e a tela pergunta de tempos em tempos — inclusive
   depois do reinício, porque o estado mora no disco.
 
-**O primeiro clique falhou, e foi bom**
+**Foram dois tropeços até funcionar, os dois só visíveis pelo botão**
 
-O botão puxou o código e rodou, mas o build morreu em "Cannot find module
-'@tailwindcss/postcss'" — um erro que **por SSH não acontecia**. O processo
-lançado pelo botão herda o ambiente do pm2, que roda com NODE_ENV=production, e
-nesse modo o `npm ci` pula as devDependencies. Corrigido nos dois lados
-(`--include=dev` no script, e NODE_ENV fora do ambiente do filho).
+**1. `npm ci` pulava as devDependencies.** O build morreu em "Cannot find
+module '@tailwindcss/postcss'" — e **por SSH o mesmo deploy funcionava**. O
+processo lançado pelo botão herda o ambiente do pm2, que roda com
+NODE_ENV=production, e nesse modo o npm ignora devDependency. Corrigido nos
+dois lados: `--include=dev` no script e NODE_ENV fora do ambiente do filho.
 
-A proteção do deploy fez exatamente o que devia: o build falhou, o BUILD_ID não
-apareceu, **nada foi trocado e o painel continuou no ar**. É essa rede que
-torna o botão seguro de usar.
+**2. O `pm2 restart` matava o próprio deploy.** O painel atualizava certinho,
+mas a tela ficava "Publicando…" pra sempre. O pm2 mata a ÁRVORE de processos do
+app pela cadeia de pais, e o `detached` do Node cria um grupo novo mas não uma
+SESSÃO nova — o deploy ainda aparecia como filho do painel na hora do restart.
+Resolvido com `setsid`, que o torna líder de sessão e o tira da árvore. O script
+também ganhou um `trap EXIT` que grava o código de saída aconteça o que
+acontecer.
+
+Se algum dia voltar: **sintoma do 1** é o build falhar só pelo botão; **sintoma
+do 2** é o painel atualizar mas a tela não sair de "Publicando…".
+
+**A rede de proteção segurou nas duas vezes**
+
+No primeiro erro o build falhou, o BUILD_ID não apareceu, **nada foi trocado e
+o painel continuou no ar**. É essa rede que torna o botão seguro de usar — e
+ela foi testada de verdade, não só no papel.
+
+**Testado ponta a ponta:** o terceiro clique publicou sozinho em 40 segundos,
+com o aviso verde "Publicado" aparecendo na tela no fim.
 
 **Esperando resposta**
 
@@ -211,5 +227,3 @@ edital aqui?" sem a pessoa ter que trocar de tela e sem misturar.
   edital ele serve.
 - `ANTHROPIC_API_KEY` no servidor — três funções estão prontas e dormindo:
   "Resumir c/ IA", triagem automática e resposta do WhatsApp.
-
-<!-- teste do botao publicar em 24/08/2026 -->

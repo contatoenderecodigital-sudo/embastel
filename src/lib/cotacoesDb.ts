@@ -66,7 +66,12 @@ function agora(): string {
  */
 export function nomeDoProduto(descricao: string): string {
   const bruto = (descricao ?? "").replace(/\s+/g, " ").trim();
-  const cabeca = bruto.split(/\s+[-–—]\s+|[.,;:]/)[0] ?? bruto;
+  // A pontuação só corta quando NÃO está entre dígitos. Cortar em toda vírgula
+  // destruía o nome de qualquer produto com decimal: "SACO PARA LIXO PRETO
+  // 100Lt 0,0012" virava "SACO PARA LIXO PRETO 100Lt 0", e o casamento por
+  // palavra passava a comparar com um nome truncado. Pega também 0,5 L, 1,5 kg
+  // e 0,03 mm. (Achado em 24/08/2026, na primeira cotação de saco de lixo.)
+  const cabeca = bruto.split(/\s+[-–—]\s+|(?<!\d)[.,;:]|[.,;:](?!\d)/)[0] ?? bruto;
   return (cabeca || bruto).slice(0, 60).trim();
 }
 

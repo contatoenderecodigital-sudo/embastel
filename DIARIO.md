@@ -19,6 +19,55 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-24 (noite) — Claude no PC do Eliezer
+
+**O imposto estava errado — 10% em vez de 7%**
+
+Era chute meu e ninguém tinha conferido. O Simples da empresa é **7%**
+(contador, 24/08). Chute pra cima aqui não é conservador, é caro: com 10% o
+piso sai mais alto que o necessário e se desiste de lance que dava lucro.
+
+Já corrigido no padrão e reaplicado em **todos os editais**. O efeito, só de
+trocar o número:
+
+| Edital | Lucro antes | Lucro agora |
+|---|---|---|
+| Taió | R$ 39.581 | **R$ 43.380** |
+| Sananduva | R$ 26.286 | **R$ 28.718** |
+| Santa Lúcia | R$ 1.650 | R$ 1.785 |
+| Victor Graeff | R$ 872 | R$ 934 |
+
+**R$ 6,4 mil** que estavam sendo escondidos por um chute.
+
+**O que mudou na tabela**
+
+- **Linha verde fecha, vermelha não fecha**, branca ainda sem custo. Na sala de
+  disputa não dá tempo de ler número em 199 linhas.
+- **Frete saiu de trás do botão** e virou coluna fixa. Frete é parte do custo,
+  não detalhe de cálculo — com ele zerado o piso fica **otimista**, como se a
+  mercadoria chegasse de graça. O campo fica âmbar enquanto ninguém cotou.
+- **Passar o mouse no piso mostra a conta inteira**: custo, frete rateado pela
+  quantidade, custo total, e a divisão por (100 − imposto − margem).
+
+**O que a outra ponta precisa saber**
+
+- **Frete está zerado em 100% dos lotes cotados.** Em Sananduva são 17 de 17.
+  Enquanto não entrar, todo piso da planilha está otimista, e os lotes que
+  fecham por pouco podem virar prejuízo.
+- Sananduva agora: **7 lotes fecham, R$ 28.718**. O copo descartável sozinho é
+  R$ 15.404 e o tapete de porta R$ 3.361.
+- Quatro lotes de Sananduva **perdem por pouco** e mudam de lado se o
+  fornecedor melhorar: álcool gel 5 L (falta 8%, custo teria que cair de
+  R$ 32,50 pra R$ 30,01), rodo de espuma (9%), rodo tipo bola (11%) e pá de
+  lixo (13%).
+
+**Esperando resposta**
+
+- Continua valendo tudo das entradas anteriores.
+
+---
+
+
 ## 2026-08-24 (fim do dia) — Claude no PC do Eliezer
 
 **O que mudou**

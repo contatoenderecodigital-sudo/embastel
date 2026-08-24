@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Cotacao } from "@/lib/cotacoesDb";
+import type { DisputaCalculada } from "@/lib/disputaDb";
 import { PATH_WHATSAPP } from "@/components/icones";
 
 type Linha = Cotacao & { telefone: string; contato: string; naAgenda: boolean };
@@ -10,6 +11,16 @@ type Dados = {
   cotacoes: Linha[];
   fornecedoresConhecidos: string[];
   resumo: { total: number; fornecedores: number; produtos: number };
+};
+
+type LicitacaoOpcao = {
+  numeroControlePNCP: string;
+  objeto: string;
+  municipio: string;
+  uf: string;
+  dataEncerramentoProposta: string | null;
+  lotes: number;
+  cotados: number;
 };
 
 const brl = (v: number) =>
@@ -50,6 +61,19 @@ export default function CotacoesPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
+  // Recorte por licitação. Vazio = a lista corrida de sempre, que é a memória
+  // de preços da casa e serve pra "quanto o fulano cobrou de saponáceo?".
+  // Com uma licitação escolhida a tela vira planilha daquele edital: só os
+  // lotes dele, com o teto do órgão do lado e o piso saindo na hora.
+  //
+  // Existe porque montar pregão a partir da lista corrida já custou caro: ela
+  // junta editais diferentes, e cotação de um acabou virando custo no outro.
+  const [licitacoes, setLicitacoes] = useState<LicitacaoOpcao[]>([]);
+  const [licEscolhida, setLicEscolhida] = useState("");
+  const [disputa, setDisputa] = useState<DisputaCalculada | null>(null);
+  const [carregandoLotes, setCarregandoLotes] = useState(false);
+  const [importando, setImportando] = useState(false);
+
   const [produto, setProduto] = useState("");
   const [marca, setMarca] = useState("");
   const [fornecedor, setFornecedor] = useState("");
@@ -70,6 +94,89 @@ export default function CotacoesPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     carregar();
   }, [carregar]);
+
+  // As licitações do funil, pra montar o seletor. Falhar aqui não pode quebrar
+  // a tela: sem a lista o seletor some e a lista corrida continua servindo.
+  useEffect(() => {
+    fetch("/api/disputa")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setLicitacoes(d.licitacoes ?? []))
+      .catch(() => {});
+  }, []);
+
+  const carregarLotes = useCallback(async (numero: string) => {
+    if (!numero) {
+      setDisputa(null);
+      return;
+    }
+    setCarregandoLotes(true);
+    try {
+      const res = await fetch(`/api/disputa/${encodeURIComponent(numero)}`);
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      setDisputa(d.disputa);
+    } catch {
+      setErro("Não deu pra carregar os lotes dessa licitação.");
+      setDisputa(null);
+    } finally {
+      setCarregandoLotes(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    carregarLotes(licEscolhida);
+  }, [licEscolhida, carregarLotes]);
+
+  /**
+   * Grava um campo do lote e recebe a disputa recalculada de volta.
+   *
+   * O piso vem do servidor, nunca recalculado aqui: a conta
+   * `custo / (1 - imposto - margem)` mora em catalogoDb.calcularPrecos e
+   * duplicá-la na tela é como ela sai errada em um dos dois lugares.
+   */
+  async function gravarLote(loteId: string, campos: Record<string, unknown>) {
+    if (!licEscolhida) return;
+    try {
+      const res = await fetch(`/api/disputa/${encodeURIComponent(licEscolhida)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ loteId, ...campos }),
+      });
+      if (!res.ok) throw new Error();
+      const d = await res.json();
+      setDisputa(d.disputa);
+      // O custo lançado aqui vira cotação lá na lista corrida — recarregar
+      // mantém os dois lados contando a mesma história.
+      carregar();
+    } catch {
+      setErro("Não deu pra salvar esse lote.");
+    }
+  }
+
+  async function importarDoPncp() {
+    if (!licEscolhida) return;
+    setImportando(true);
+    setErro(null);
+    try {
+      const res = await fetch(`/api/disputa/${encodeURIComponent(licEscolhida)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "importar-do-pncp" }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "");
+      setDisputa(d.disputa);
+    } catch (e) {
+      setErro(
+        e instanceof Error && e.message
+          ? e.message
+          : "O PNCP não respondeu agora. Tente de novo em um minuto."
+      );
+    } finally {
+      setImportando(false);
+    }
+  }
 
   async function salvar() {
     if (!produto.trim() || !fornecedor.trim() || paraNumero(preco) <= 0) {
@@ -260,6 +367,166 @@ export default function CotacoesPage() {
         </div>
       </div>
 
+      {/* ---------------------------------------------- recorte por edital -- */}
+      {licitacoes.length > 0 && (
+        <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11.5px] font-medium text-neutral-600">
+              Trabalhar em cima de uma licitação
+            </span>
+            <select
+              value={licEscolhida}
+              onChange={(e) => setLicEscolhida(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+            >
+              <option value="">Todas — a lista corrida de preços</option>
+              {licitacoes.map((l) => (
+                <option key={l.numeroControlePNCP} value={l.numeroControlePNCP}>
+                  {l.municipio}/{l.uf} — {l.objeto.slice(0, 70)}
+                  {l.lotes > 0 ? ` (${l.cotados}/${l.lotes} cotados)` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {licEscolhida ? (
+        /* ------------------------------------------------ lotes do edital -- */
+        carregandoLotes ? (
+          <div className="rounded-2xl border border-neutral-200/70 bg-white px-5 py-10 text-center text-sm text-neutral-500 shadow-sm">
+            Carregando os lotes…
+          </div>
+        ) : !disputa || disputa.lotes.filter((l) => !l.descartado).length === 0 ? (
+          <div className="rounded-2xl border border-neutral-200/70 bg-white px-5 py-10 text-center shadow-sm">
+            <p className="text-sm font-medium text-neutral-700">
+              Esta licitação ainda não tem lotes.
+            </p>
+            <p className="mt-1 text-[13px] text-neutral-500">
+              Dá pra puxar a lista do PNCP em vez de digitar item por item.
+            </p>
+            <button
+              onClick={importarDoPncp}
+              disabled={importando}
+              className="brand-gradient mt-4 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+            >
+              {importando ? "Puxando do PNCP…" : "Puxar itens do PNCP"}
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
+            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b border-neutral-200 bg-neutral-50 text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                  <th className="px-3 py-2.5 text-left">Lote</th>
+                  <th className="px-3 py-2.5 text-right">Qtd</th>
+                  <th className="px-3 py-2.5 text-right">Teto do órgão</th>
+                  <th className="px-3 py-2.5 text-left">Fornecedor</th>
+                  <th className="px-3 py-2.5 text-left">Marca</th>
+                  <th className="px-3 py-2.5 text-right">Custo</th>
+                  <th className="px-3 py-2.5 text-right">Piso</th>
+                  <th className="px-3 py-2.5 text-right">Empate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {disputa.lotes
+                  .filter((l) => !l.descartado)
+                  .map((l) => {
+                    const semCusto = l.custoUnitario <= 0;
+                    // Custo acima do que o órgão aceita pagar: disputar esse
+                    // lote é vender no prejuízo, e a linha precisa gritar isso
+                    // antes da sessão começar.
+                    const acimaDoTeto =
+                      !semCusto &&
+                      l.referenciaUnitaria != null &&
+                      l.empateUnitario > l.referenciaUnitaria;
+
+                    return (
+                      <tr
+                        key={l.id}
+                        className={`border-b border-neutral-100 last:border-0 ${
+                          acimaDoTeto ? "bg-red-50/60" : ""
+                        }`}
+                      >
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-neutral-800">
+                            <span className="mr-1.5 text-[11px] text-neutral-400">
+                              {l.numero}
+                            </span>
+                            {l.descricao}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-neutral-600">
+                          {l.quantidade.toLocaleString("pt-BR")}
+                          <span className="ml-1 text-[11px] text-neutral-400">{l.unidade}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-neutral-800">
+                          {l.referenciaUnitaria != null ? brl(l.referenciaUnitaria) : "—"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            defaultValue={l.fornecedor}
+                            list="fornecedores-conhecidos"
+                            placeholder="quem cotou"
+                            onBlur={(e) =>
+                              e.target.value !== l.fornecedor &&
+                              gravarLote(l.id, { fornecedor: e.target.value })
+                            }
+                            className="w-32 rounded border border-neutral-200 px-2 py-1 text-[12.5px] outline-none focus:border-brand"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            defaultValue={l.marca}
+                            placeholder="marca ofertada"
+                            onBlur={(e) =>
+                              e.target.value !== l.marca &&
+                              gravarLote(l.id, { marca: e.target.value })
+                            }
+                            className="w-28 rounded border border-neutral-200 px-2 py-1 text-[12.5px] outline-none focus:border-brand"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <input
+                            defaultValue={l.custoUnitario || ""}
+                            placeholder="0,00"
+                            inputMode="decimal"
+                            onBlur={(e) => {
+                              const v = paraNumero(e.target.value);
+                              if (v !== l.custoUnitario) {
+                                gravarLote(l.id, { custoUnitario: v });
+                              }
+                            }}
+                            className="w-20 rounded border border-neutral-200 px-2 py-1 text-right text-[12.5px] tabular-nums outline-none focus:border-brand"
+                          />
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-bold tabular-nums text-brand">
+                          {semCusto ? (
+                            <span className="text-neutral-300">—</span>
+                          ) : (
+                            brl(l.pisoUnitario)
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-neutral-600">
+                          {semCusto ? (
+                            <span className="text-neutral-300">—</span>
+                          ) : acimaDoTeto ? (
+                            <span className="font-semibold text-red-700">
+                              {brl(l.empateUnitario)} · acima do teto
+                            </span>
+                          ) : (
+                            brl(l.empateUnitario)
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : (
+        <>
       <input
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
@@ -359,6 +626,8 @@ export default function CotacoesPage() {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

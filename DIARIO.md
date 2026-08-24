@@ -19,6 +19,52 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-24 — Claude no PC da Suzana
+
+**O que mudou**
+
+- **Preços dos fornecedores agora tem recorte por licitação.** Um seletor no
+  topo: em "Todas" a tela é a de sempre, sem mudança nenhuma. Escolhendo uma
+  licitação, ela vira a planilha daquele edital — só os lotes dele, com teto do
+  órgão, fornecedor, marca, custo, piso e empate na mesma linha. Quando a
+  licitação ainda não tem lotes, aparece o botão de puxar do PNCP.
+- O piso continua vindo **calculado do servidor**, nunca refeito na tela: a
+  conta mora em `catalogoDb.calcularPrecos` e duplicá-la é como ela sai
+  diferente nos dois lugares.
+- Linha com **custo acima do teto do órgão fica vermelha** e diz isso. Veio de
+  caso real: três lotes de Sananduva estavam com custo acima do que a
+  prefeitura aceita pagar, e isso não aparecia em lugar nenhum antes.
+
+**Por que, se a Disputa e piso já fazia isso**
+
+A Suzana estava montando o pregão a partir da lista corrida, que junta todos os
+editais. O resultado foi uma lista com cloro, lava-roupas e limpa-vidros de 5 L
+que **não existem no edital de Sananduva** — eram de outro pregão. O recorte
+existe pra que a tela de memória de preços também consiga responder "e neste
+edital aqui?" sem a pessoa ter que trocar de tela e sem misturar.
+
+**O que a outra ponta precisa saber**
+
+- **O imposto padrão da disputa é 10%, e a Kesu é 7%** (Simples, confirmado com
+  o contador em 24/08/2026). Com 10% o piso sai mais alto que o necessário e se
+  perde disputa que dava pra ganhar. Ajustar nos padrões da disputa.
+- **A lista de cotações de agosto não serve pra Sananduva.** Só 9 dos 47 lotes
+  tinham custo aproveitável. Os itens de papel (higiênico, toalha,
+  interfolhada — R$ 312 mil dos R$ 894 mil) ficam de fora por decisão da
+  Suzana: a indústria cota direto e o distribuidor não acompanha o preço.
+- **Onde está o dinheiro que sobrou:** saco de lixo, R$ 112 mil em quatro lotes
+  (30, 50, 100 litros e o de 12 micras), nenhum cotado. É embalagem.
+- Dois tetos do edital parecem altos demais e vale conferir antes de confiar:
+  pano mágico a R$ 81,63 a unidade e saco de lixo 12 micras a R$ 128,80 o
+  pacote.
+
+**Esperando resposta**
+
+- Pregão de Sananduva encerra 25/08 às 8h59 — conferir se o painel no ar
+  mostrou o recorte certo durante a sessão.
+
+---
+
 ## 2026-08-20 — Claude no PC do Eliezer
 
 **O que mudou**

@@ -55,6 +55,18 @@ quem entrou no painel já provou que tem a senha, é a mesma porta.
   vai pra `data/deploy.log` e a tela pergunta de tempos em tempos — inclusive
   depois do reinício, porque o estado mora no disco.
 
+**O primeiro clique falhou, e foi bom**
+
+O botão puxou o código e rodou, mas o build morreu em "Cannot find module
+'@tailwindcss/postcss'" — um erro que **por SSH não acontecia**. O processo
+lançado pelo botão herda o ambiente do pm2, que roda com NODE_ENV=production, e
+nesse modo o `npm ci` pula as devDependencies. Corrigido nos dois lados
+(`--include=dev` no script, e NODE_ENV fora do ambiente do filho).
+
+A proteção do deploy fez exatamente o que devia: o build falhou, o BUILD_ID não
+apareceu, **nada foi trocado e o painel continuou no ar**. É essa rede que
+torna o botão seguro de usar.
+
 **Esperando resposta**
 
 - Continua valendo tudo da entrada anterior (IPI da Ecosul, prazo e trava de

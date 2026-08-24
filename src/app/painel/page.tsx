@@ -8,6 +8,7 @@ import type { ProdutoEstoque } from "@/lib/estoqueDb";
 import type { Pedido } from "@/lib/pedidosDb";
 import type { Romaneio } from "@/lib/romaneiosDb";
 import { COR_WHATSAPP, IconeWhatsApp, PATH_WHATSAPP } from "@/components/icones";
+import AvisoPublicar from "@/components/AvisoPublicar";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const compact = new Intl.NumberFormat("pt-BR", {
@@ -220,6 +221,8 @@ export default function Home() {
 
   return (
     <div className="space-y-7">
+      <AvisoPublicar />
+
       <div>
         <h1 className="brand-gradient-text text-[28px] font-extrabold tracking-tight">
           Painel Embastel Embalagens

@@ -19,6 +19,49 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-24 (fim do dia) — Claude no PC do Eliezer
+
+**O que mudou**
+
+- **Botão "Publicar agora" dentro do painel.** No topo da tela inicial aparece
+  um aviso quando tem código no GitHub que ainda não está no ar, com quem fez
+  e há quantos dias. Clicou, o servidor puxa e reconstrói sozinho. O aviso
+  some quando não há nada pendente — aviso que aparece sempre ninguém lê.
+- **Publiquei o que estava parado.** O servidor estava no commit de 20/08 e o
+  recorte por licitação da Kemilly (24/08) estava no GitHub havia quatro dias
+  sem ir pro ar. Rodei tsc, eslint e build no código dela antes: passou nos
+  três. Já está no ar.
+
+**Por que o botão existe**
+
+Publicar exigia SSH com chave de root, e só o Eliezer tem. Não foi decisão
+deixar o trabalho parado — foi que ninguém foi avisado e quem fez não tinha
+como publicar. O botão resolve os dois lados sem distribuir chave nenhuma:
+quem entrou no painel já provou que tem a senha, é a mesma porta.
+
+**O que a outra ponta precisa saber**
+
+- **Kemilly: agora você publica sozinha.** Painel → o aviso amarelo no topo →
+  "Publicar agora". Leva uns 2 minutos e o painel pisca no fim (o processo
+  reinicia). Se der errado, ele **volta sozinho pra versão anterior** — o
+  deploy compila numa pasta separada e só troca no fim.
+- **Combinem mesmo assim.** Duas publicações ao mesmo tempo continuam sendo
+  problema: a segunda pega o que a primeira acabou de subir. O botão recusa se
+  já tiver uma rodando, mas avisar continua sendo mais barato.
+- O que não foi `git push` não vai pro ar. O botão publica o que está no
+  GitHub, não o que está na sua máquina.
+- Detalhe técnico pra quem for mexer: o script é lançado **desanexado**, senão
+  o `pm2 restart` que ele mesmo dispara mataria o processo no meio. O progresso
+  vai pra `data/deploy.log` e a tela pergunta de tempos em tempos — inclusive
+  depois do reinício, porque o estado mora no disco.
+
+**Esperando resposta**
+
+- Continua valendo tudo da entrada anterior (IPI da Ecosul, prazo e trava de
+  preço, e o Termo de Referência de Taió).
+
+---
+
 ## 2026-08-24 — Claude no PC do Eliezer
 
 **O que mudou**

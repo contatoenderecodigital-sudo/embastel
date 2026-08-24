@@ -200,9 +200,20 @@ export async function publicar(): Promise<{ ok: boolean; erro?: string }> {
   const ambiente = { ...process.env } as Record<string, string | undefined>;
   delete ambiente.NODE_ENV;
 
+  // `setsid` no comando, e não só o `detached` do Node.
+  //
+  // O primeiro teste morreu exatamente no `pm2 restart` que o próprio script
+  // dispara: o pm2 mata a ÁRVORE de processos do app, andando pela cadeia de
+  // pais, e o deploy ainda aparecia como filho do painel naquele instante. O
+  // `detached` do Node cria um grupo novo, mas não uma SESSÃO nova — a cadeia
+  // de pais continua lá. Com `setsid` o processo vira líder de sessão e é
+  // reparentado pro init na hora, então some da árvore antes do restart.
+  //
+  // Sintoma, se voltar: o painel atualiza normalmente, mas a tela fica
+  // "Publicando…" pra sempre e o data/deploy.exit nunca é escrito.
   const filho = spawn(
-    "sh",
-    ["-c", `bash ${SCRIPT} >> ${LOG} 2>&1; echo $? > ${SAIDA}`],
+    "setsid",
+    ["sh", "-c", `bash ${SCRIPT} >> ${LOG} 2>&1; echo $? > ${SAIDA}`],
     {
       cwd: PASTA_APP,
       detached: true,

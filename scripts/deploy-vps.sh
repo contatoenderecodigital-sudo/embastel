@@ -23,6 +23,13 @@ ANTIGA=".next-antiga"
 
 cd "$PASTA_APP"
 
+# Registra o código de saída aconteça o que acontecer.
+#
+# Quem chama pelo botão do painel fica esperando este arquivo pra saber se
+# terminou. Sem a armadilha, um script interrompido no meio deixava a tela em
+# "Publicando…" até o limite de 15 minutos, mesmo com o painel já atualizado.
+trap 'CODIGO=$?; mkdir -p "$PASTA_APP/data"; echo "$CODIGO" > "$PASTA_APP/data/deploy.exit"' EXIT
+
 echo "==> Buscando o código novo"
 ASSINATURA_ANTES=$(sha1sum "$0" | cut -d' ' -f1)
 git fetch --quiet origin

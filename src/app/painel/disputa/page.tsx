@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { ItemDaLista, Proposta } from "@/lib/casarProdutos";
 import type { DisputaCalculada, LoteCalculado } from "@/lib/disputaDb";
 import type { Sugestao } from "@/lib/cotacoesDb";
@@ -104,6 +104,11 @@ export default function DisputaPage() {
   // edital), e empurravam Piso, Fatura e Lucro pra fora da tela — a tabela
   // rolava pro lado e a pessoa perdia de vista qual produto era cada linha.
   const [mostrarCalculo, setMostrarCalculo] = useState(false);
+  // Qual lote está com a conta aberta. Clicar no piso abre uma linha embaixo
+  // com a aritmética inteira. Ficava só no title do mouse, e "como ele fez o
+  // cálculo?" foi a primeira pergunta de quem usa — passar o mouse é gesto que
+  // ninguém descobre sozinho, e no celular nem existe.
+  const [contaAberta, setContaAberta] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [importando, setImportando] = useState(false);
@@ -733,6 +738,26 @@ export default function DisputaPage() {
             </div>
           )}
 
+          {/* A fórmula fica escrita na tela, não só no clique.
+              "Como ele fez o cálculo?" foi a primeira pergunta de quem usa, e
+              a resposta não pode depender de descobrir que a célula é
+              clicável. Os percentuais vêm do próprio edital, então a linha
+              muda junto quando alguém ajusta o imposto. */}
+          {!modoPregao && disputa && (
+            <p className="-mt-1 text-[12px] text-neutral-500">
+              <b className="font-semibold text-neutral-700">Piso</b> = (custo do
+              fornecedor + frete ÷ quantidade) ÷{" "}
+              <b className="font-semibold text-neutral-700">
+                {100 - disputa.impostoPadrao - disputa.margemPadrao}%
+              </b>
+              {" — "}porque o imposto ({disputa.impostoPadrao}%) e a margem (
+              {disputa.margemPadrao}%) saem do preço de venda, não do custo.{" "}
+              <span className="text-neutral-400">
+                Clique em qualquer piso pra ver a conta daquele lote.
+              </span>
+            </p>
+          )}
+
           {/* ----------------------------------------------------- a tabela -- */}
           <div className="max-h-[70vh] overflow-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
             <table className="w-full min-w-[760px] text-[12px]">
@@ -770,8 +795,8 @@ export default function DisputaPage() {
                 {lotesVisiveis.map((l: LoteCalculado) => {
                   const semCusto = l.custoUnitario <= 0;
                   return (
+                    <React.Fragment key={l.id}>
                     <tr
-                      key={l.id}
                       // O fundo fica no <tr> porque as duas primeiras células
                       // são sticky e precisam de fundo opaco pra tapar o que
                       // passa por baixo — elas herdam este.
@@ -934,7 +959,10 @@ export default function DisputaPage() {
                         // foi a primeira pergunta de quem olhou a tabela, e o
                         // numero que decide o lance nao pode ser magica.
                         title={l.explicacao}
-                        className={`cursor-help bg-brand/5 px-3 py-2 text-right font-bold tabular-nums ${
+                        onClick={() =>
+                          setContaAberta(contaAberta === l.id ? null : l.id)
+                        }
+                        className={`cursor-pointer bg-brand/5 px-3 py-2 text-right font-bold tabular-nums hover:bg-brand/10 ${
                           modoPregao ? "text-[17px]" : "text-[13px]"
                         } ${semCusto ? "text-neutral-400" : "text-brand"}`}
                       >
@@ -1009,6 +1037,41 @@ export default function DisputaPage() {
                         </td>
                       )}
                     </tr>
+
+                    {contaAberta === l.id && (
+                      <tr className="bg-brand/5">
+                        <td colSpan={20} className="px-5 py-3">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-brand">
+                            Como este piso foi calculado
+                          </div>
+                          <pre className="mt-1 whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-neutral-700">
+                            {l.explicacao}
+                          </pre>
+                          {l.referenciaUnitaria != null && l.custoUnitario > 0 && (
+                            <div className="mt-2 border-t border-brand/20 pt-2 text-[12px] text-neutral-600">
+                              O órgão paga até <b>{brl(l.referenciaUnitaria)}</b>, e o seu
+                              piso é <b>{brl(l.pisoUnitario)}</b> —{" "}
+                              {l.vale ? (
+                                <span className="font-semibold text-emerald-700">
+                                  sobra {pct(l.folgaPercentual ?? 0)} pra brigar no lance.
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-red-700">
+                                  não fecha: o custo teria que cair pra{" "}
+                                  {brl(
+                                    l.referenciaUnitaria *
+                                      (1 -
+                                        (l.percentualImpostos + l.margemAlvo) / 100)
+                                  )}
+                                  .
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>

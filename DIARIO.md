@@ -211,3 +211,5 @@ edital aqui?" sem a pessoa ter que trocar de tela e sem misturar.
   edital ele serve.
 - `ANTHROPIC_API_KEY` no servidor — três funções estão prontas e dormindo:
   "Resumir c/ IA", triagem automática e resposta do WhatsApp.
+
+<!-- teste do botao publicar em 24/08/2026 -->

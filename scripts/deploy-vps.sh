@@ -48,7 +48,14 @@ fi
 
 echo
 echo "==> Instalando dependências (se mudaram)"
-npm ci --no-audit --no-fund --silent
+# --include=dev NÃO é redundante.
+#
+# Quando o deploy é disparado pelo botão do painel, o processo herda o ambiente
+# do pm2, que roda com NODE_ENV=production — e nesse modo o npm PULA as
+# devDependencies. O build morria em "Cannot find module '@tailwindcss/postcss'"
+# só por esse caminho; por SSH funcionava, porque ali NODE_ENV não vem
+# definido. Descoberto em 24/08/2026, no primeiro clique do botão.
+npm ci --include=dev --no-audit --no-fund --silent
 
 echo
 echo "==> Compilando em $NOVA (o painel continua no ar durante isso)"

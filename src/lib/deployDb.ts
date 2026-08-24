@@ -103,11 +103,35 @@ async function lerLog(): Promise<string> {
   }
 }
 
-const statusEmMemoria = {
-  rodando: false,
-  iniciadoEm: null as number | null,
-  ultimoOk: null as boolean | null,
+const STATUS = path.join(PASTA_APP, "data", "deploy-status.json");
+
+type Status = {
+  rodando: boolean;
+  iniciadoEm: number | null;
+  ultimoOk: boolean | null;
 };
+
+const PARADO: Status = { rodando: false, iniciadoEm: null, ultimoOk: null };
+
+// O estado vai pro DISCO, não pra uma variável.
+//
+// No caminho de sucesso o deploy reinicia o pm2 no meio — o processo que
+// registrou "estou publicando" morre, e o que sobe no lugar nasce sem memória
+// nenhuma. Com o estado em variável, a tela nunca chegava a dizer se deu certo:
+// o aviso simplesmente sumia. Em arquivo, o processo novo continua a história
+// de onde o antigo parou.
+async function lerStatus(): Promise<Status> {
+  try {
+    return { ...PARADO, ...JSON.parse(await fsp.readFile(STATUS, "utf8")) };
+  } catch {
+    return { ...PARADO };
+  }
+}
+
+async function gravarStatus(s: Status): Promise<void> {
+  await fsp.mkdir(path.dirname(STATUS), { recursive: true });
+  await fsp.writeFile(STATUS, JSON.stringify(s), "utf8");
+}
 
 export async function lerEstado(): Promise<EstadoDeploy> {
   const ehServidor = fs.existsSync(SCRIPT) && fs.existsSync("/www/wwwroot");
@@ -115,17 +139,17 @@ export async function lerEstado(): Promise<EstadoDeploy> {
   // Um deploy em andamento termina escrevendo o código de saída num arquivo.
   // É assim que se descobre o fim mesmo depois do pm2 ter reiniciado este
   // processo no meio do caminho: o estado mora no disco, não na memória.
-  if (statusEmMemoria.rodando) {
+  const status = await lerStatus();
+  if (status.rodando) {
     if (fs.existsSync(SAIDA)) {
       const codigo = (await fsp.readFile(SAIDA, "utf8")).trim();
-      statusEmMemoria.rodando = false;
-      statusEmMemoria.ultimoOk = codigo === "0";
-    } else if (
-      statusEmMemoria.iniciadoEm &&
-      Date.now() - statusEmMemoria.iniciadoEm > LIMITE_MS
-    ) {
-      statusEmMemoria.rodando = false;
-      statusEmMemoria.ultimoOk = false;
+      status.rodando = false;
+      status.ultimoOk = codigo === "0";
+      await gravarStatus(status);
+    } else if (status.iniciadoEm && Date.now() - status.iniciadoEm > LIMITE_MS) {
+      status.rodando = false;
+      status.ultimoOk = false;
+      await gravarStatus(status);
     }
   }
 
@@ -145,9 +169,9 @@ export async function lerEstado(): Promise<EstadoDeploy> {
   return {
     noAr: lerCommits(noArBruto)[0] ?? null,
     pendentes: lerCommits(pendentesBruto),
-    rodando: statusEmMemoria.rodando,
-    iniciadoEm: statusEmMemoria.iniciadoEm,
-    ultimoOk: statusEmMemoria.ultimoOk,
+    rodando: status.rodando,
+    iniciadoEm: status.iniciadoEm,
+    ultimoOk: status.ultimoOk,
     log,
     podePublicar: ehServidor,
     motivo: ehServidor
@@ -168,15 +192,26 @@ export async function publicar(): Promise<{ ok: boolean; erro?: string }> {
   // `sh -c` porque precisamos de redirecionamento e do código de saída no fim.
   // detached + unref é o que faz o processo sobreviver ao pm2 restart que ele
   // mesmo dispara lá no meio.
+  // NODE_ENV sai do ambiente do filho de propósito: o pm2 roda o painel com
+  // NODE_ENV=production, e nesse modo o `npm ci` pula as devDependencies — o
+  // build morria sem o @tailwindcss/postcss. O script já pede --include=dev,
+  // mas herdar o ambiente de produção num processo de build é armadilha em
+  // geral, não só nesse caso.
+  const ambiente = { ...process.env } as Record<string, string | undefined>;
+  delete ambiente.NODE_ENV;
+
   const filho = spawn(
     "sh",
     ["-c", `bash ${SCRIPT} >> ${LOG} 2>&1; echo $? > ${SAIDA}`],
-    { cwd: PASTA_APP, detached: true, stdio: "ignore" }
+    {
+      cwd: PASTA_APP,
+      detached: true,
+      stdio: "ignore",
+      env: ambiente as NodeJS.ProcessEnv,
+    }
   );
   filho.unref();
 
-  statusEmMemoria.rodando = true;
-  statusEmMemoria.iniciadoEm = Date.now();
-  statusEmMemoria.ultimoOk = null;
+  await gravarStatus({ rodando: true, iniciadoEm: Date.now(), ultimoOk: null });
   return { ok: true };
 }

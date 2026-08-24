@@ -130,6 +130,16 @@ export type LoteCalculado = LoteDisputa & {
   lucroNoPiso: number;
   /** O lote fecha: dá pra vender acima do piso. */
   vale: boolean;
+  /**
+   * O frete ainda não foi cotado neste lote.
+   *
+   * Vale um aviso porque frete zerado deixa o piso OTIMISTA: a conta fica como
+   * se a mercadoria chegasse de graça. Em lote grande de item leve o frete
+   * muda pouco; num de bacia e balde muda tudo.
+   */
+  freteEmBranco: boolean;
+  /** A conta escrita por extenso, pra conferir de onde saiu o piso. */
+  explicacao: string;
 };
 
 export function calcularLote(l: LoteDisputa): LoteCalculado {
@@ -192,7 +202,39 @@ export function calcularLote(l: LoteDisputa): LoteCalculado {
           l.quantidade
         : 0,
     vale: l.custoUnitario > 0 && folga != null && folga > 0,
+    freteEmBranco: l.custoUnitario > 0 && l.freteTotal <= 0,
+    explicacao: explicar(l, freteUnitario, custoTotal, precoMinimo),
   };
+}
+
+/**
+ * A conta do piso escrita por extenso.
+ *
+ * Existe porque a pergunta "de onde saiu esse preço?" apareceu na primeira vez
+ * que alguém olhou a tabela — e é uma pergunta certa: o número que decide o
+ * lance não pode ser mágica. Vai no title da célula do piso.
+ */
+function explicar(
+  l: LoteDisputa,
+  freteUnitario: number,
+  custoTotal: number,
+  piso: number
+): string {
+  if (l.custoUnitario <= 0) return "Sem custo cotado — não dá pra calcular o piso.";
+  const n = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const restante = 100 - l.percentualImpostos - l.margemAlvo;
+  return [
+    `Custo do fornecedor: ${n(l.custoUnitario)}`,
+    l.freteTotal > 0
+      ? `Frete: ${n(l.freteTotal)} ÷ ${l.quantidade.toLocaleString("pt-BR")} = ${n(freteUnitario)} por unidade`
+      : "Frete: não cotado (o piso está otimista)",
+    `Custo total por unidade: ${n(custoTotal)}`,
+    "",
+    `Imposto ${l.percentualImpostos}% + margem ${l.margemAlvo}% saem do PREÇO DE VENDA,`,
+    `então sobra ${restante}% pra pagar o custo:`,
+    `${n(custoTotal)} ÷ ${(restante / 100).toLocaleString("pt-BR")} = ${n(piso)}`,
+  ].join("\n");
 }
 
 export type DisputaCalculada = Omit<Disputa, "lotes"> & {

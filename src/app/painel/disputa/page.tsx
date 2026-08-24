@@ -537,7 +537,7 @@ export default function DisputaPage() {
                       : "border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
                   }`}
                 >
-                  Frete, imposto e margem
+                  Imposto e margem
                 </button>
                 <label className="flex items-center gap-1.5 text-[12px] text-neutral-600">
                   Imposto padrão
@@ -746,9 +746,9 @@ export default function DisputaPage() {
                       <Cabecalho campo="fornecedor" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Fornecedor</Cabecalho>
                       <Cabecalho campo="marca" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-left">Marca</Cabecalho>
                       <Cabecalho campo="custo" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Custo un.</Cabecalho>
+                      <Cabecalho campo="frete" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Frete do lote</Cabecalho>
                       {mostrarCalculo && (
                         <>
-                          <Cabecalho campo="frete" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Frete</Cabecalho>
                           <Cabecalho campo="imposto" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Imp%</Cabecalho>
                           <Cabecalho campo="margem" ordem={ordem} aoOrdenar={ordenarPor} className="px-3 py-2 text-right">Marg%</Cabecalho>
                         </>
@@ -777,10 +777,12 @@ export default function DisputaPage() {
                       // passa por baixo — elas herdam este.
                       className={`border-b border-neutral-100 last:border-0 ${
                         l.abaixoDoPiso
-                          ? "bg-red-50"
+                          ? "bg-red-100"
                           : semCusto
-                            ? "bg-amber-50"
-                            : "bg-white"
+                            ? "bg-white"
+                            : l.vale
+                              ? "bg-emerald-50"
+                              : "bg-red-50"
                       }`}
                     >
                       <td className="sticky left-0 z-10 w-12 bg-inherit px-2 py-2 font-semibold tabular-nums text-neutral-800">
@@ -878,20 +880,22 @@ export default function DisputaPage() {
                                 </button>
                               ))}
                           </td>
-                          {mostrarCalculo && (
-                          <>
                           <td className="px-3 py-2">
                             <input
                               defaultValue={l.freteTotal || ""}
                               inputMode="decimal"
                               placeholder="0,00"
-                              title="Frete do lote inteiro — é rateado pela quantidade"
+                              title="Frete do lote inteiro (nao por unidade) — e rateado pela quantidade na hora da conta"
                               onBlur={(e) =>
                                 salvarLote(l.id, "freteTotal", paraNumero(e.target.value))
                               }
-                              className={`${numInput} w-20`}
+                              className={`${numInput} w-20 ${
+                                l.freteEmBranco ? "border-amber-400 bg-amber-50" : ""
+                              }`}
                             />
                           </td>
+                          {mostrarCalculo && (
+                          <>
                           <td className="px-3 py-2">
                             <input
                               defaultValue={l.percentualImpostos}
@@ -926,7 +930,11 @@ export default function DisputaPage() {
                       </td>
 
                       <td
-                        className={`bg-brand/5 px-3 py-2 text-right font-bold tabular-nums ${
+                        // A conta inteira no title: "de onde saiu esse preco?"
+                        // foi a primeira pergunta de quem olhou a tabela, e o
+                        // numero que decide o lance nao pode ser magica.
+                        title={l.explicacao}
+                        className={`cursor-help bg-brand/5 px-3 py-2 text-right font-bold tabular-nums ${
                           modoPregao ? "text-[17px]" : "text-[13px]"
                         } ${semCusto ? "text-neutral-400" : "text-brand"}`}
                       >

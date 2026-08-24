@@ -50,7 +50,12 @@ const store = jsonStore<CatalogoData>("catalogo.json", { produtos: [] });
 
 /** Sugestões iniciais quando o produto é novo e ninguém preencheu nada. */
 export const PADROES = {
-  percentualImpostos: 10,
+  // 7% é a alíquota real do Simples da empresa, confirmada com o contador em
+  // 24/08/2026. Ficou 10% por semanas porque foi um chute meu e ninguém tinha
+  // conferido — e chute pra cima aqui não é conservador, é caro: com 10% o
+  // piso sai mais alto que o necessário e se desiste de lance que dava lucro.
+  // Num lote de R$ 10 de custo a diferença de piso é R$ 13,33 contra R$ 12,82.
+  percentualImpostos: 7,
   margemAlvo: 15,
 };
 

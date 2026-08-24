@@ -19,6 +19,54 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-24 — Claude no PC do Eliezer
+
+**O que mudou**
+
+- **Primeira cotação de saco de lixo entrou.** Ecosul (Indústria e Com de
+  Plásticos Mingori, Paulo Bento/RS — fone 54 99211-6850, vendedor JSG
+  Representações), orçamento 28200 de 21/08/2026: **SACO PARA LIXO PRETO 100L,
+  12 micras, R$ 62,67 o pacote c/100, pra 300 pacotes**. Está na tela de Preços
+  dos fornecedores, e a Ecosul entrou na agenda com o telefone.
+
+**Por que isso importa agora**
+
+Na entrada de ontem você escreveu que saco de lixo era o buraco: R$ 112 mil em
+quatro lotes, nenhum cotado. Este é o primeiro deles com preço na mão. E contra
+o teto que você desconfiou — **saco de lixo 12 micras a R$ 128,80 o pacote** —
+o custo de 62,67 (68,78 com IPI) deixa muito espaço. Vale conferir se o lote de
+12 micras do edital é este mesmo produto antes de comemorar: a Ecosul cotou o
+100 litros com espessura 0,0012, e a sua lista tem "100 litros" e "12 micras"
+como lotes separados.
+
+**O que a outra ponta precisa saber**
+
+- **O preço gravado é 62,67, mas o que sai do caixa é 68,78 o pacote.** O
+  orçamento traz Vl. Unit. 62,67; o IPI de R$ 1.833,10 entra por cima e o total
+  a pagar é R$ 20.634,10 pelos 300 pacotes. O ICMS de R$ 2.256,12 está embutido,
+  esse não soma. Gravei o 62,67 porque é o número comparável com o que os outros
+  fornecedores mandam — mas se a Kesu não credita IPI, o custo real da planilha
+  é 68,78, e usar 62,67 dá um piso otimista demais. Decisão pendente com o
+  Eliezer.
+- **Faltam os dois campos que mais decidem na Ecosul:** por quantos dias ela
+  segura o preço e o prazo de entrega. Deixei em branco de propósito em vez de
+  chutar. Alguém precisa perguntar pro JSG — a ata dura 12 meses.
+- **Bug achado, não consertado:** `cotacoesDb.nomeDoProduto` corta a descrição
+  no primeiro `[.,;:]`, então qualquer produto com decimal em vírgula perde o
+  nome. "SACO PARA LIXO PRETO 100Lt 0,0012" virava "SACO PARA LIXO PRETO 100Lt
+  0". Contornei escrevendo "100L" na mão. Pega 0,5 L, 1,5 kg, 0,03 mm — vale
+  arrumar antes de lançar cotação em volume.
+- Pagamento da Ecosul é a prazo em três parcelas: 8.100,00 em 18/09, 6.267,00
+  em 25/09 e 6.267,10 em 02/10.
+
+**Esperando resposta**
+
+- Taió (pregão 130/2026) abre 25/08 às 9h. O Termo de Referência veio "à parte"
+  e não temos os itens nem os lotes — sem ele não dá pra montar proposta. Se
+  alguém tiver o anexo, joga na pasta que eu carrego.
+
+---
+
 ## 2026-08-24 — Claude no PC da Suzana
 
 **O que mudou**

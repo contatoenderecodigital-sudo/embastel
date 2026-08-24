@@ -45,8 +45,19 @@ export type EstadoDeploy = {
   pendentes: Commit[];
   rodando: boolean;
   iniciadoEm: number | null;
+  /** Quando a última publicação terminou — o aviso de resultado usa pra sumir. */
+  terminadoEm: number | null;
   /** Resultado da última publicação: null enquanto nunca rodou por aqui. */
   ultimoOk: boolean | null;
+  /**
+   * A última publicação terminou há pouco (10 min).
+   *
+   * Calculado aqui, e não na tela, porque comparar com Date.now() durante o
+   * render é chamada impura — o React 19 reclama, com razão: dois renders do
+   * mesmo estado dariam respostas diferentes. E o relógio que vale é o do
+   * servidor, que é quem carimbou o fim.
+   */
+  resultadoRecente: boolean;
   log: string;
   /**
    * Se dá pra publicar desta máquina.
@@ -108,10 +119,16 @@ const STATUS = path.join(PASTA_APP, "data", "deploy-status.json");
 type Status = {
   rodando: boolean;
   iniciadoEm: number | null;
+  terminadoEm: number | null;
   ultimoOk: boolean | null;
 };
 
-const PARADO: Status = { rodando: false, iniciadoEm: null, ultimoOk: null };
+const PARADO: Status = {
+  rodando: false,
+  iniciadoEm: null,
+  terminadoEm: null,
+  ultimoOk: null,
+};
 
 // O estado vai pro DISCO, não pra uma variável.
 //
@@ -144,10 +161,12 @@ export async function lerEstado(): Promise<EstadoDeploy> {
     if (fs.existsSync(SAIDA)) {
       const codigo = (await fsp.readFile(SAIDA, "utf8")).trim();
       status.rodando = false;
+      status.terminadoEm = Date.now();
       status.ultimoOk = codigo === "0";
       await gravarStatus(status);
     } else if (status.iniciadoEm && Date.now() - status.iniciadoEm > LIMITE_MS) {
       status.rodando = false;
+      status.terminadoEm = Date.now();
       status.ultimoOk = false;
       await gravarStatus(status);
     }
@@ -171,7 +190,10 @@ export async function lerEstado(): Promise<EstadoDeploy> {
     pendentes: lerCommits(pendentesBruto),
     rodando: status.rodando,
     iniciadoEm: status.iniciadoEm,
+    terminadoEm: status.terminadoEm,
     ultimoOk: status.ultimoOk,
+    resultadoRecente:
+      status.terminadoEm != null && Date.now() - status.terminadoEm < 10 * 60 * 1000,
     log,
     podePublicar: ehServidor,
     motivo: ehServidor
@@ -184,6 +206,9 @@ export async function publicar(): Promise<{ ok: boolean; erro?: string }> {
   const estado = await lerEstado();
   if (!estado.podePublicar) return { ok: false, erro: estado.motivo };
   if (estado.rodando) return { ok: false, erro: "Já tem uma publicação em andamento." };
+  // Publicar sem nada pendente é permitido de propósito: recompila e reinicia o
+  // mesmo commit, que é o que se quer quando o painel fica estranho depois de
+  // uma mudança de variável de ambiente ou de um travamento.
 
   await fsp.mkdir(path.dirname(LOG), { recursive: true });
   await fsp.rm(SAIDA, { force: true });
@@ -223,6 +248,11 @@ export async function publicar(): Promise<{ ok: boolean; erro?: string }> {
   );
   filho.unref();
 
-  await gravarStatus({ rodando: true, iniciadoEm: Date.now(), ultimoOk: null });
+  await gravarStatus({
+    rodando: true,
+    iniciadoEm: Date.now(),
+    terminadoEm: null,
+    ultimoOk: null,
+  });
   return { ok: true };
 }

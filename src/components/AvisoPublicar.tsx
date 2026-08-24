@@ -51,6 +51,7 @@ export default function AvisoPublicar() {
 
   async function publicar() {
     if (!confirm("Publicar agora? O painel que a loja usa vai ser atualizado.")) return;
+
     setErro(null);
     try {
       const res = await fetch("/api/deploy", { method: "POST" });
@@ -69,21 +70,36 @@ export default function AvisoPublicar() {
   if (!estado) return null;
 
   const pendentes = estado.pendentes.length;
-  // Nada pendente e nada rodando: o aviso não tem o que dizer.
-  if (pendentes === 0 && !estado.rodando && estado.ultimoOk === null) return null;
 
-  const terminouAgora = !estado.rodando && estado.ultimoOk !== null;
+  // A barra fica SEMPRE visível, mesmo sem nada pendente.
+  //
+  // A primeira versão sumia quando estava tudo publicado — e a primeira coisa
+  // que perguntaram foi "e onde fica o botão?". Botão que só existe no momento
+  // em que é necessário é botão que ninguém sabe que existe, e a pessoa não
+  // aprende o caminho. Sem pendência ela fica discreta, cinza, dizendo o que
+  // está no ar; com pendência ela fica amarela e chama.
+  //
+  // Publicar sem nada pendente continua valendo: recompila o mesmo commit, que
+  // é o que se quer quando o painel fica estranho.
+  const terminouAgora =
+    !estado.rodando && estado.ultimoOk !== null && estado.resultadoRecente;
+
+  const emDia = pendentes === 0 && !estado.rodando && !terminouAgora;
 
   return (
     <div
-      className={`rounded-2xl border px-5 py-4 shadow-sm ${
-        estado.rodando
-          ? "border-amber-300 bg-amber-50"
-          : terminouAgora && !estado.ultimoOk
-            ? "border-red-300 bg-red-50"
-            : terminouAgora
-              ? "border-emerald-300 bg-emerald-50"
-              : "border-amber-300 bg-amber-50"
+      className={`rounded-2xl border shadow-sm ${
+        emDia ? "px-5 py-3" : "px-5 py-4"
+      } ${
+        emDia
+          ? "border-neutral-200 bg-white"
+          : estado.rodando
+            ? "border-amber-300 bg-amber-50"
+            : terminouAgora && !estado.ultimoOk
+              ? "border-red-300 bg-red-50"
+              : terminouAgora
+                ? "border-emerald-300 bg-emerald-50"
+                : "border-amber-300 bg-amber-50"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -101,6 +117,10 @@ export default function AvisoPublicar() {
               {estado.ultimoOk
                 ? "Publicado. O que estava pendente já está no ar."
                 : "A publicação falhou — o painel continua na versão anterior."}
+            </div>
+          ) : emDia ? (
+            <div className="text-[13px] font-semibold text-neutral-700">
+              Tudo publicado — o que está no GitHub já está no ar
             </div>
           ) : (
             <div className="text-sm font-semibold text-amber-900">
@@ -127,14 +147,14 @@ export default function AvisoPublicar() {
           )}
 
           {estado.noAr && (
-            <div className="mt-1.5 text-[11.5px] text-neutral-500">
+            <div className={`text-[11.5px] text-neutral-500 ${emDia ? "mt-0.5" : "mt-1.5"}`}>
               No ar agora: {estado.noAr.assunto} ({estado.noAr.hash})
             </div>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {(estado.rodando || terminouAgora) && (
+          {(estado.rodando || terminouAgora) && estado.log && (
             <button
               onClick={() => setVerLog(!verLog)}
               className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[12.5px] font-medium text-neutral-700 hover:bg-neutral-50"
@@ -142,12 +162,16 @@ export default function AvisoPublicar() {
               {verLog ? "Esconder detalhes" : "Ver detalhes"}
             </button>
           )}
-          {!estado.rodando && pendentes > 0 && estado.podePublicar && (
+          {!estado.rodando && estado.podePublicar && (
             <button
               onClick={publicar}
-              className="brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              className={
+                pendentes > 0
+                  ? "brand-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                  : "rounded-lg border border-neutral-300 bg-white px-3 py-2 text-[12.5px] font-medium text-neutral-700 hover:bg-neutral-50"
+              }
             >
-              Publicar agora
+              {pendentes > 0 ? "Publicar agora" : "Publicar de novo"}
             </button>
           )}
         </div>

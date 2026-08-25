@@ -2,6 +2,7 @@ import { haversineKm } from "./geoUtils";
 import { lerIndice } from "./licitacoesIndexDb";
 import { exclusaoQueBateu, normalizarTexto, palavraQueCombinou } from "./textoUtils";
 import type { LicitacaoResultado } from "./pncpTypes";
+import { numerosDescartados } from "./licitacoesDescartadasDb";
 
 export { MODALIDADES, DEFAULT_MODALIDADES, DEFAULT_KEYWORDS } from "./pncpTypes";
 export type { LicitacaoResultado } from "./pncpTypes";
@@ -53,6 +54,9 @@ export async function searchLicitacoes(options: {
   incluirDescartadasPelaIA?: boolean;
 }): Promise<ResultadoBusca> {
   const indice = await lerIndice();
+  // O que a casa já resolveu ignorar não volta a aparecer, mesmo que o
+  // coletor traga de novo do PNCP a cada rodada.
+  const descartadas = await numerosDescartados();
   const agora = Date.now();
   const modalidades = options.modalidades?.length ? new Set(options.modalidades) : null;
   const municipioBuscado = options.municipio
@@ -62,6 +66,7 @@ export async function searchLicitacoes(options: {
   const items: LicitacaoResultado[] = [];
 
   for (const item of indice.items) {
+    if (descartadas.has(item.numeroControlePNCP)) continue;
     if (modalidades && !modalidades.has(item.modalidadeId)) continue;
     if (options.uf && item.uf !== options.uf) continue;
 

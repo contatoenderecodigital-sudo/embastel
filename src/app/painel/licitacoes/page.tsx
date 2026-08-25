@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_KEYWORDS, MODALIDADES } from "@/lib/pncpTypes";
 import type { LicitacaoResultado } from "@/lib/pncpTypes";
 import type { LicitacaoStatus, TrackedLicitacao } from "@/lib/licitacoesTrackingDb";
@@ -263,6 +263,17 @@ export default function LicitacoesPage() {
     }
   }, []);
 
+  /**
+   * A configuração salva só preenche os campos na PRIMEIRA carga.
+   *
+   * Sem isso o raio não parava em pé: `loadColeta` roda de 2 em 2 segundos
+   * enquanto a coleta anda (e de novo depois de salvar e de atualizar), e a
+   * cada volta reescrevia o campo com o valor do servidor. Quem digitasse
+   * "80" via voltar pra 250 sozinho dois segundos depois, no meio da
+   * digitação. Depois da primeira carga quem manda é quem está na tela.
+   */
+  const configCarregada = useRef(false);
+
   const loadColeta = useCallback(async () => {
     try {
       const res = await fetch("/api/licitacoes/coleta");
@@ -271,7 +282,8 @@ export default function LicitacoesPage() {
       setColeta(data.status);
       setIndiceAtualizadoEm(data.atualizadoEm);
       setTotalNoIndice(data.totalNoIndice);
-      if (data.config) {
+      if (data.config && !configCarregada.current) {
+        configCarregada.current = true;
         setRaioKm(data.config.raioKm);
         setModalidades(data.config.modalidades);
         if (data.config.keywords?.length) {
@@ -402,6 +414,45 @@ export default function LicitacoesPage() {
     setModalidades((prev) =>
       prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
     );
+  }
+
+  /**
+   * Tira a licitação da busca pra sempre.
+   *
+   * Some da tela na hora, sem esperar o servidor: quem está limpando uma lista
+   * de duzentas linhas clica em sequência, e uma lista que só reordena depois
+   * da resposta faz a pessoa clicar na linha errada.
+   */
+  async function handleDescartar(item: LicitacaoResultado) {
+    const motivo = window.prompt(
+      `Descartar "${item.objeto.slice(0, 70)}"?
+
+Por que não serve? (opcional, mas ajuda a lembrar depois)`,
+      ""
+    );
+    // Cancelar no prompt devolve null; string vazia é "descarta sem motivo".
+    if (motivo === null) return;
+
+    setResults((atuais) =>
+      atuais
+        ? atuais.filter((r) => r.numeroControlePNCP !== item.numeroControlePNCP)
+        : atuais
+    );
+    try {
+      await fetch("/api/licitacoes/descartadas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          numeroControlePNCP: item.numeroControlePNCP,
+          objeto: item.objeto,
+          municipio: item.municipio,
+          uf: item.uf,
+          motivo,
+        }),
+      });
+    } catch {
+      setError("Não deu pra descartar. A licitação volta na próxima busca.");
+    }
   }
 
   async function handleTrack(item: LicitacaoResultado) {
@@ -915,17 +966,26 @@ export default function LicitacoesPage() {
                     >
                       Ver edital no portal de origem →
                     </a>
-                    <button
-                      onClick={() => handleTrack(item)}
-                      disabled={isTracked}
-                      className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
-                        isTracked
-                          ? "bg-neutral-100 text-neutral-400"
-                          : "bg-brand text-white hover:bg-brand-dark"
-                      }`}
-                    >
-                      {isTracked ? "✓ No funil" : "+ Acompanhar"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleDescartar(item)}
+                        title="Não interessa — some da busca e não volta"
+                        className="rounded-full px-3 py-1.5 font-medium text-neutral-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      >
+                        Não interessa
+                      </button>
+                      <button
+                        onClick={() => handleTrack(item)}
+                        disabled={isTracked}
+                        className={`rounded-full px-3.5 py-1.5 font-medium transition-colors ${
+                          isTracked
+                            ? "bg-neutral-100 text-neutral-400"
+                            : "bg-brand text-white hover:bg-brand-dark"
+                        }`}
+                      >
+                        {isTracked ? "✓ No funil" : "+ Acompanhar"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

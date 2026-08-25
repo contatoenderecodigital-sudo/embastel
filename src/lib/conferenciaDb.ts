@@ -34,6 +34,15 @@ export type ItemConferencia = {
   responsavel: string;
   /** Onde o item fica guardado — prateleira, galpão, sala. */
   local: string;
+  /**
+   * De quem se compra este item. Vazio = ainda não sabido.
+   *
+   * Existe pra ligar a contagem ao pedido: quem conta e vê que acabou precisa
+   * que aquilo vire linha de pedido do fornecedor certo, sem redigitar o
+   * produto na aba Estoque. Texto livre porque a lista de fornecedores da loja
+   * muda direto e travar num cadastro fechado só faria o item ficar sem dono.
+   */
+  fornecedor: string;
   // Quanto deveria ter em estoque. Opcional de propósito — o usuário disse
   // que nem sempre sabe o número ideal na hora de cadastrar.
   quantidadeIdeal: number | null;
@@ -52,6 +61,7 @@ export type RegistroContagem = {
   // continua mostrando quem contou naquele dia.
   responsavel: string;
   local: string;
+  fornecedor: string;
   quantidade: number;
   quantidadeIdeal: number | null;
 };
@@ -80,6 +90,7 @@ const store = jsonStore<ConferenciaData>("conferencia-estoque.json", {
     descricao: item.descricao,
     periodicidade: item.periodicidade,
     responsavel: "",
+    fornecedor: "",
     local: "",
     quantidadeIdeal: null,
     ultimaContagem: null,
@@ -119,6 +130,7 @@ export async function listItens(): Promise<ItemConferencia[]> {
       ...item,
       responsavel: item.responsavel ?? "",
       local: item.local ?? "",
+      fornecedor: item.fornecedor ?? "",
     }))
     .sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
 }
@@ -151,6 +163,7 @@ export async function addItem(input: {
   descricao: string;
   periodicidade: Periodicidade;
   responsavel?: string | null;
+  fornecedor?: string | null;
   local?: string | null;
   quantidadeIdeal?: number | null;
 }): Promise<ItemConferencia> {
@@ -161,6 +174,7 @@ export async function addItem(input: {
       descricao: input.descricao.trim(),
       periodicidade: input.periodicidade,
       responsavel: responsavelValido(input.responsavel ?? ""),
+      fornecedor: (input.fornecedor ?? "").trim(),
       local: input.local?.trim() || "",
       quantidadeIdeal: input.quantidadeIdeal ?? null,
       ultimaContagem: null,
@@ -182,6 +196,7 @@ export async function updateItem(
       | "descricao"
       | "periodicidade"
       | "responsavel"
+      | "fornecedor"
       | "local"
       | "quantidadeIdeal"
       | "ativo"
@@ -267,6 +282,7 @@ export async function salvarConferencia(input: {
         descricao: item.descricao,
         responsavel: item.responsavel ?? "",
         local: item.local ?? "",
+        fornecedor: item.fornecedor ?? "",
         quantidade: contagem.quantidade,
         quantidadeIdeal: item.quantidadeIdeal,
       });
@@ -291,4 +307,72 @@ export async function excluirConferencia(id: string): Promise<void> {
   await store.update((data) => {
     data.conferencias = data.conferencias.filter((c) => c.id !== id);
   });
+}
+
+/**
+ * Espalha os quinzenais entre as duas semanas do ciclo.
+ *
+ * O PROBLEMA. A conta de vencimento é por data da última contagem. Quando os
+ * itens são cadastrados todos no mesmo dia — ou conferidos todos de uma vez,
+ * como aconteceu em 24/08/2026 — eles passam a vencer todos juntos, de 14 em
+ * 14 dias. Na prática isso dá uma semana com a lista inteira e a seguinte
+ * quase vazia, e quem confere sente o serviço dobrar e sumir sem motivo.
+ *
+ * O QUE FAZ. Metade dos quinzenais tem a última contagem recuada em 7 dias.
+ * Recuar a data faz o item vencer uma semana antes, e daí em diante o
+ * intervalo de 14 dias mantém os dois grupos alternando sozinhos.
+ *
+ * POR QUE POR PESSOA E POR LOCAL. A divisão é feita dentro da lista de cada
+ * responsável, não no monte: metade do total pode ser toda da Eli e não
+ * resolver nada pro Valdecir. E a ordem de corte é por local, pra que os itens
+ * da mesma semana fiquem perto uns dos outros no depósito — dividir por ordem
+ * alfabética manda a pessoa atravessar o galpão a cada item.
+ *
+ * Itens nunca contados ficam de fora: eles já estão vencidos e precisam ser
+ * contados agora. Depois da primeira contagem, rodar de novo os distribui.
+ */
+export async function distribuirQuinzenais(): Promise<{
+  movidos: number;
+  porResponsavel: Record<string, { estaSemana: number; naOutra: number }>;
+}> {
+  const porResponsavel: Record<string, { estaSemana: number; naOutra: number }> = {};
+  let movidos = 0;
+
+  await store.update((data) => {
+    const grupos = new Map<string, ItemConferencia[]>();
+    for (const item of data.itens) {
+      if (!item.ativo) continue;
+      if (item.periodicidade !== "quinzenal") continue;
+      if (!item.ultimaConferenciaEm) continue;
+      const dono = item.responsavel ?? "";
+      const atual = grupos.get(dono);
+      if (atual) atual.push(item);
+      else grupos.set(dono, [item]);
+    }
+
+    for (const [dono, itens] of grupos) {
+      itens.sort(
+        (a, b) =>
+          (a.local ?? "").localeCompare(b.local ?? "", "pt-BR") ||
+          a.descricao.localeCompare(b.descricao, "pt-BR")
+      );
+      let estaSemana = 0;
+      let naOutra = 0;
+      itens.forEach((item, i) => {
+        if (i % 2 === 1) {
+          const recuado = new Date(item.ultimaConferenciaEm!).getTime() - 7 * DIAS_MS;
+          item.ultimaConferenciaEm = new Date(recuado).toISOString();
+          movidos++;
+          estaSemana++;
+        } else {
+          naOutra++;
+        }
+      });
+      porResponsavel[dono || "sem dono"] = { estaSemana, naOutra };
+    }
+
+    return data;
+  });
+
+  return { movidos, porResponsavel };
 }

@@ -19,6 +19,70 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-25 — Claude no PC da Kemilly
+
+**Quatro pedidos da Suzana, quatro entregas**
+
+**1. O raio não parava em pé — era bug, não distração.** Quem digitasse "80"
+via voltar pra 250 sozinho segundos depois. `loadColeta` reescrevia os campos de
+configuração com o valor do servidor a **cada** chamada, e ela roda de 2 em 2
+segundos enquanto a coleta anda. Agora a config salva só preenche os campos na
+PRIMEIRA carga; depois disso quem manda é quem está na tela.
+
+**2. Dá pra descartar licitação da busca.** Botão "Não interessa" em cada
+resultado, com motivo opcional. A lista de descartadas mora em
+`licitacoes-descartadas.json`, **separada do índice**: apagar do índice não
+adiantaria, porque o coletor regrava tudo de 6 em 6 horas e a licitação voltaria
+na rodada seguinte, pra sempre. Dá pra restaurar pela API.
+
+Sobre "a lista parece aleatória": ela já é ordenada por prazo mais apertado
+primeiro. O que parece bagunça são as licitações **sem data de encerramento**,
+que caem todas no fim. Se incomodar, vale conversar sobre escondê-las por padrão.
+
+**3. Quinzenais espalhados entre as duas semanas.** Botão "Equilibrar
+quinzenais" na Conferência. Como tudo foi cadastrado e conferido no mesmo dia,
+todos venciam juntos: uma semana com a lista inteira e a seguinte vazia. Metade
+passa a vencer 7 dias antes, e o intervalo de 14 dias mantém o revezamento
+sozinho. Testado com os 59 quinzenais: **Eli saiu de 30/0 pra 15/15, Valdecir de
+29/0 pra 15/14**.
+
+A divisão é por pessoa (metade do total podia ser toda de um) e o corte é por
+**local**, pra que os itens da mesma semana fiquem perto no depósito.
+
+**4. Conferência ligada ao Estoque pelo fornecedor.** Item de conferência agora
+tem campo Fornecedor, com sugestão dos que já existem (evita "Ibras" e "ibras"
+virarem dois). Ao salvar a contagem, o que veio **abaixo do ideal** aparece
+sozinho na aba Estoque, no fornecedor certo, como "baixo" ou "falta", com a
+quantidade sugerida. Dali o botão de copiar lista por fornecedor, que já
+existia, monta o pedido.
+
+Não duplica: contar de novo atualiza a linha em vez de criar outra.
+
+**Um erro meu que vale registrar, porque quase passou**
+
+Escrevi uma trava pra não rebaixar "falta" pra "baixo", pensando em quem marca
+falta à mão sabendo de algo que a contagem não vê. Só que ela congelava também o
+que a **própria conferência** tinha marcado: contar 3 unidades e continuar
+dizendo "falta" geraria pedido de coisa que está no depósito. Resolvido com o
+campo `origem` em `ProdutoEstoque` — a conferência manda nas linhas que ela
+criou, e não rebaixa as que uma pessoa marcou.
+
+**O que a outra ponta precisa saber**
+
+- **Os 129 itens de conferência estão sem fornecedor.** A ponte com o Estoque só
+  funciona nos que tiverem o campo preenchido — dá pra preencher direto na lista,
+  sem recadastrar.
+- **A ponte só age em item com "quantidade ideal" definida.** Sem o ideal não há
+  como saber que está baixo, e o item é ignorado em silêncio.
+- Continua valendo o aviso da entrada anterior: **frete zerado em 100% dos lotes
+  cotados**, o que deixa todo piso otimista.
+
+**Esperando resposta**
+
+- Continua valendo tudo das entradas anteriores.
+
+---
+
 ## 2026-08-24 (noite) — Claude no PC do Eliezer
 
 **O imposto estava errado — 10% em vez de 7%**

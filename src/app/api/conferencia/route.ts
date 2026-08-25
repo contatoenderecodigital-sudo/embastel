@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { listProdutos, reporDaConferencia } from "@/lib/estoqueDb";
 import {
+  RESPONSAVEIS,
   addItem,
   atribuirEmLote,
+  distribuirQuinzenais,
   estaVencido,
   listConferencias,
   listItens,
   listLocais,
-  RESPONSAVEIS,
   salvarConferencia,
   type Periodicidade,
 } from "@/lib/conferenciaDb";
@@ -14,11 +16,26 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [itens, conferencias, locais] = await Promise.all([
+  const [itens, conferencias, locais, produtosEstoque] = await Promise.all([
     listItens(),
     listConferencias(),
     listLocais(),
+    listProdutos(),
   ]);
+
+  // Fornecedores que já existem em algum lugar da casa: os do estoque mais os
+  // que já foram digitados na própria conferência. Serve de sugestão pra que
+  // "Ibras" e "ibras" não virem dois fornecedores e partam o pedido em dois.
+  const fornecedores = [
+    ...new Set(
+      [
+        ...produtosEstoque.map((p) => p.fornecedor),
+        ...itens.map((i) => i.fornecedor),
+      ]
+        .map((f) => (f ?? "").trim())
+        .filter(Boolean)
+    ),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const agora = Date.now();
   const ativos = itens.filter((i) => i.ativo);
 
@@ -42,6 +59,7 @@ export async function GET() {
     conferencias: conferencias.slice(0, 20),
     responsaveis: [...RESPONSAVEIS],
     locais,
+    fornecedores,
     porResponsavel: [...porResponsavel.entries()]
       .map(([nome, v]) => ({ nome, ...v }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
@@ -57,7 +75,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
-    acao?: "novo_item" | "salvar_conferencia";
+    acao?: "novo_item" | "salvar_conferencia" | "distribuir_quinzenais";
     // novo item
     codigo?: string;
     descricao?: string;
@@ -72,6 +90,10 @@ export async function POST(request: NextRequest) {
     contagens?: Array<{ itemId: string; quantidade: number }>;
   };
 
+  if (body.acao === "distribuir_quinzenais") {
+    return NextResponse.json(await distribuirQuinzenais());
+  }
+
   if (body.acao === "salvar_conferencia") {
     if (!body.contagens?.length) {
       return NextResponse.json(
@@ -85,7 +107,26 @@ export async function POST(request: NextRequest) {
       observacao: body.observacao ?? null,
       contagens: body.contagens,
     });
-    return NextResponse.json({ conferencia }, { status: 201 });
+
+    // Contou abaixo do ideal, vira linha de pedido na aba Estoque, já no
+    // fornecedor certo. Feito aqui e não dentro de salvarConferencia pra que
+    // a conferência não dependa do estoque pra ser gravada: se a reposição
+    // falhar, a contagem — que é o dado que não pode se perder — já está salva.
+    let reposicao = { criados: 0, atualizados: 0 };
+    try {
+      reposicao = await reporDaConferencia(
+        conferencia.itens.map((i) => ({
+          nome: i.descricao,
+          fornecedor: i.fornecedor,
+          quantidade: i.quantidade,
+          quantidadeIdeal: i.quantidadeIdeal,
+        }))
+      );
+    } catch {
+      // silencioso: a contagem está gravada, e o estoque se resolve na próxima
+    }
+
+    return NextResponse.json({ conferencia, reposicao }, { status: 201 });
   }
 
   if (!body.descricao?.trim()) {

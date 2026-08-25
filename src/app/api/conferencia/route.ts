@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listProdutos, reporDaConferencia } from "@/lib/estoqueDb";
+import { reporDaConferencia } from "@/lib/estoqueDb";
+import { listFornecedores } from "@/lib/fornecedoresDb";
 import {
   RESPONSAVEIS,
   addItem,
@@ -16,20 +17,26 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [itens, conferencias, locais, produtosEstoque] = await Promise.all([
+  const [itens, conferencias, locais, fornecedoresCadastrados] = await Promise.all([
     listItens(),
     listConferencias(),
     listLocais(),
-    listProdutos(),
+    listFornecedores(),
   ]);
 
-  // Fornecedores que já existem em algum lugar da casa: os do estoque mais os
-  // que já foram digitados na própria conferência. Serve de sugestão pra que
-  // "Ibras" e "ibras" não virem dois fornecedores e partam o pedido em dois.
+  // A lista fechada vem da aba Fornecedores, e não do que já foi digitado.
+  //
+  // É o mesmo motivo do menu de "quem confere": campo livre deixaria "Ibras",
+  // "ibras" e "IBRAS" na base, e o filtro do Estoque compara texto exato —
+  // cada grafia viraria um fornecedor diferente, com o pedido partido em três.
+  //
+  // Um nome que já esteja gravado num item mas tenha saído da aba Fornecedores
+  // continua na lista, senão o item perderia o dono em silêncio e sumiria do
+  // pedido sem ninguém notar.
   const fornecedores = [
     ...new Set(
       [
-        ...produtosEstoque.map((p) => p.fornecedor),
+        ...fornecedoresCadastrados.map((f) => f.nome),
         ...itens.map((i) => i.fornecedor),
       ]
         .map((f) => (f ?? "").trim())

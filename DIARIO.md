@@ -50,8 +50,11 @@ A divisão é por pessoa (metade do total podia ser toda de um) e o corte é por
 **local**, pra que os itens da mesma semana fiquem perto no depósito.
 
 **4. Conferência ligada ao Estoque pelo fornecedor.** Item de conferência agora
-tem campo Fornecedor, com sugestão dos que já existem (evita "Ibras" e "ibras"
-virarem dois). Ao salvar a contagem, o que veio **abaixo do ideal** aparece
+tem campo Fornecedor: **menu fechado, alimentado pela aba Fornecedores** — mesmo
+motivo do menu de "quem confere", porque o filtro do Estoque compara texto exato
+e "Ibras"/"ibras" virariam dois fornecedores com o pedido partido em dois. Nome
+que já esteja gravado num item mas tenha saído da aba continua aparecendo,
+senão o item perderia o dono em silêncio. Ao salvar a contagem, o que veio **abaixo do ideal** aparece
 sozinho na aba Estoque, no fornecedor certo, como "baixo" ou "falta", com a
 quantidade sugerida. Dali o botão de copiar lista por fornecedor, que já
 existia, monta o pedido.

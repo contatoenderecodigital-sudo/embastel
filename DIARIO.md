@@ -19,6 +19,39 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-25 (tarde) — Claude no PC da Kemilly
+
+**A aba Estoque ficava vazia mesmo com fornecedor preenchido**
+
+Falha de projeto minha, achada pela Suzana usando. A reposição automática só
+dispara **no evento** de salvar uma contagem, e só enxerga as contagens daquele
+momento. Quem preenche o fornecedor depois — que é o caso de todo mundo agora,
+já que os 129 itens nasceram sem — nunca via nada chegar no Estoque, porque a
+última contagem aconteceu antes do campo existir.
+
+Item contado baixo semanas atrás tinha o mesmo destino: sumia do pedido sem
+ninguém perceber que sumiu.
+
+**Botão "Puxar da conferência"** na aba Estoque. Olha o **estado de hoje** em
+vez de esperar o próximo evento: todo item ativo, com fornecedor e quantidade
+ideal preenchidos, já contado ao menos uma vez, e cuja última contagem ficou
+abaixo do ideal. A reposição no salvar continua existindo — o botão é a rede
+pra tudo que ficou pra trás.
+
+**Nunca contado não entra.** O item pode estar cheio na prateleira e só não ter
+passado pela contagem ainda; pedir sem ter contado seria inventar falta.
+
+**O que a outra ponta precisa saber**
+
+- **Três campos, não um.** O item só chega no Estoque se tiver fornecedor E
+  quantidade ideal E pelo menos uma contagem. Faltando qualquer um, ele é
+  ignorado em silêncio — e "em silêncio" foi o que fez a Suzana achar que
+  estava quebrado.
+- O aviso do botão diz quantos itens foram analisados, justamente pra separar
+  "não tem nada baixo" de "nada está preenchido".
+
+---
+
 ## 2026-08-25 — Claude no PC da Kemilly
 
 **Quatro pedidos da Suzana, quatro entregas**

@@ -376,3 +376,41 @@ export async function distribuirQuinzenais(): Promise<{
 
   return { movidos, porResponsavel };
 }
+
+/**
+ * O que a última contagem deixou abaixo do ideal, olhando o estado de hoje.
+ *
+ * A reposição automática dispara quando uma conferência é salva, e só enxerga
+ * as contagens daquele momento. Isso deixa um buraco: item que foi contado
+ * baixo semanas atrás, ou que só ganhou fornecedor depois da contagem, nunca
+ * chega no Estoque — e some do pedido sem ninguém perceber que sumiu.
+ *
+ * Esta função olha o retrato atual em vez do evento, e é o que permite uma
+ * sincronização sob demanda ("puxar da conferência") em vez de esperar a
+ * próxima contagem.
+ */
+export async function itensParaRepor(): Promise<
+  Array<{
+    nome: string;
+    fornecedor: string;
+    quantidade: number;
+    quantidadeIdeal: number | null;
+  }>
+> {
+  const data = await store.read();
+  return data.itens
+    .filter((i) => i.ativo)
+    .filter((i) => (i.fornecedor ?? "").trim())
+    .filter((i) => i.quantidadeIdeal != null)
+    // Nunca contado não é o mesmo que "tem zero": o item pode estar cheio na
+    // prateleira e só não ter passado pela contagem ainda. Pedir sem ter
+    // contado seria inventar falta.
+    .filter((i) => i.ultimaContagem != null)
+    .filter((i) => (i.ultimaContagem as number) < (i.quantidadeIdeal as number))
+    .map((i) => ({
+      nome: i.descricao,
+      fornecedor: i.fornecedor,
+      quantidade: i.ultimaContagem as number,
+      quantidadeIdeal: i.quantidadeIdeal,
+    }));
+}

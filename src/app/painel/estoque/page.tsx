@@ -36,6 +36,9 @@ export default function EstoquePage() {
   const [observacao, setObservacao] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [puxando, setPuxando] = useState(false);
+  const [avisoConferencia, setAvisoConferencia] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     try {
       const [estoqueRes, fornecedoresRes] = await Promise.all([
@@ -57,6 +60,42 @@ export default function EstoquePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  /**
+   * Traz da conferência o que está abaixo do ideal.
+   *
+   * A reposição automática só age quando uma contagem é salva. Item contado
+   * baixo semanas atrás, ou que só ganhou fornecedor depois da contagem, nunca
+   * chegava aqui — e sumia do pedido sem ninguém perceber. Este botão olha o
+   * estado de hoje em vez de esperar o próximo evento.
+   */
+  async function puxarDaConferencia() {
+    setPuxando(true);
+    setAvisoConferencia(null);
+    try {
+      const res = await fetch("/api/estoque", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "puxar_da_conferencia" }),
+      });
+      if (!res.ok) throw new Error();
+      const d = (await res.json()) as {
+        criados: number;
+        atualizados: number;
+        analisados: number;
+      };
+      setProdutos(((await (await fetch("/api/estoque")).json()).produtos ?? []));
+      setAvisoConferencia(
+        d.analisados === 0
+          ? "A conferência não tem nada abaixo do ideal. Lembre que o item só entra aqui se tiver fornecedor E quantidade ideal preenchidos, e se já tiver sido contado ao menos uma vez."
+          : `${d.criados} produto(s) novo(s) e ${d.atualizados} atualizado(s), de ${d.analisados} abaixo do ideal na conferência.`
+      );
+    } catch {
+      setAvisoConferencia("Não deu pra puxar da conferência agora.");
+    } finally {
+      setPuxando(false);
+    }
+  }
 
   async function handleAdd() {
     if (!nome.trim() || !fornecedor.trim()) {
@@ -144,13 +183,29 @@ export default function EstoquePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-[25px] font-bold tracking-tight text-neutral-900">Estoque</h1>
-        <p className="mt-1.5 text-sm text-neutral-500">
-          Marca o que está em falta ou com estoque baixo, por fornecedor — na hora de fazer o
-          pedido, já sai a lista pronta.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[25px] font-bold tracking-tight text-neutral-900">Estoque</h1>
+          <p className="mt-1.5 text-sm text-neutral-500">
+            Marca o que está em falta ou com estoque baixo, por fornecedor — na hora de fazer o
+            pedido, já sai a lista pronta.
+          </p>
+        </div>
+        <button
+          onClick={puxarDaConferencia}
+          disabled={puxando}
+          title="Traz o que a última contagem deixou abaixo do ideal, com o fornecedor de cada item"
+          className="rounded-xl border border-neutral-300 px-3.5 py-2 text-[13px] font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 disabled:opacity-60"
+        >
+          {puxando ? "Puxando…" : "Puxar da conferência"}
+        </button>
       </div>
+
+      {avisoConferencia && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {avisoConferencia}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

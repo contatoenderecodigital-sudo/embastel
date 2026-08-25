@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listProdutos, addProduto } from "@/lib/estoqueDb";
+import { itensParaRepor } from "@/lib/conferenciaDb";
+import { listProdutos, addProduto, reporDaConferencia } from "@/lib/estoqueDb";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,20 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
+
+  // Traz pro estoque tudo que a conferência já tem abaixo do ideal, sem
+  // esperar a próxima contagem. É o que faz o item contado semanas atrás — ou
+  // que só ganhou fornecedor depois da contagem — aparecer aqui.
+  if (body?.acao === "puxar_da_conferencia") {
+    const pendentes = await itensParaRepor();
+    const resultado = await reporDaConferencia(pendentes);
+    return NextResponse.json({
+      ...resultado,
+      analisados: pendentes.length,
+      produtos: await listProdutos(),
+    });
+  }
+
   if (!body.nome?.trim() || !body.fornecedor?.trim()) {
     return NextResponse.json(
       { error: "Nome do produto e fornecedor são obrigatórios" },

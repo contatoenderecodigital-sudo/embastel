@@ -29,7 +29,18 @@ const defaults: Settings = {
   storeLon: null,
   licitacaoKeywords: DEFAULT_KEYWORDS,
   licitacaoExclusoes: DEFAULT_EXCLUSOES,
-  licitacaoRaioKm: 250,
+  // 175 km é o recorte que a loja usa pra decidir se vale entregar. Foi 250
+  // até 27/08/2026.
+  //
+  // CUIDADO com a expectativa: mexer aqui NÃO diminui o que se lê do PNCP.
+  // O raio escolhe os ESTADOS a varrer (com folga de 300 km sobre o centro de
+  // cada um), e de Xanxerê tanto 175 quanto 250 dão os mesmos SC, PR e RS — na
+  // prática qualquer valor acima de 8 km dá os três. Depois disso o raio só
+  // filtra o que já foi baixado, decidindo o que vira notificação.
+  //
+  // Quem controla o volume de páginas é `licitacaoDias` (a janela de datas) e
+  // a quantidade de modalidades.
+  licitacaoRaioKm: 175,
   licitacaoModalidades: DEFAULT_MODALIDADES,
   licitacaoDias: 30,
   licitacaoIntervaloHoras: 6,

@@ -459,7 +459,20 @@ Por que não serve? (opcional, mas ajuda a lembrar depois)`,
     }
   }
 
+  /**
+   * Manda a licitação pro funil e tira ela desta lista na hora.
+   *
+   * A busca no servidor já esconde o que está no funil, mas ela não roda de
+   * novo só porque se clicou aqui. Sem tirar da tela, o card ficaria parado
+   * até a próxima busca — e quem está limpando a lista de cima pra baixo
+   * clicaria de novo no mesmo, achando que não pegou.
+   */
   async function handleTrack(item: LicitacaoResultado) {
+    setResults((atuais) =>
+      atuais
+        ? atuais.filter((r) => r.numeroControlePNCP !== item.numeroControlePNCP)
+        : atuais
+    );
     await fetch("/api/licitacoes/acompanhadas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

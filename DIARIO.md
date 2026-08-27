@@ -19,6 +19,54 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-27 (tarde) — Claude no PC da Kemilly
+
+**Oportunidades agora mostra só o que ainda não foi olhado**
+
+Já escondia as descartadas. Agora esconde também **as que estão no funil**:
+a aba é pra garimpar, e licitação acompanhada tem tela própria. Deixá-la nas
+duas fazia reler todo dia uma decisão já tomada.
+
+Ao clicar em "+ Acompanhar" o card **sai da lista na hora**, sem esperar a
+próxima busca. Sem isso ele ficaria parado mostrando "✓ No funil", e quem
+limpa a lista de cima pra baixo clicaria de novo no mesmo achando que não
+pegou. Mesmo padrão do "Não interessa".
+
+**Documentos de habilitação cadastrados**
+
+Os 12 da pasta DOCS-LICITACOES entraram com tipo, datas e arquivo anexado.
+**Isso foi feito no painel local**, não no do servidor — daqui não há acesso.
+
+Duas decisões que valem registro:
+
+- **O .pfx do certificado digital NÃO foi anexado.** A ficha existe, com a
+  validade 06/11/2026, pra o painel avisar antes de vencer. Mas o arquivo
+  carrega a chave privada da empresa — é com ela que se assina proposta e
+  contrato — e num anexo do painel qualquer pessoa logada baixa.
+- **Os anexos 12 a 17 ficaram de fora.** São declarações daquele edital de
+  Sananduva, com numeração e texto próprios. Em outro pregão os anexos mudam,
+  então não são biblioteca permanente.
+
+O atestado de capacidade técnica continua como pendência na lista amarela,
+porque de fato não existe nenhum.
+
+**Raio padrão foi pra 175 km**
+
+E fica registrado o que ele NÃO faz, pra ninguém tentar de novo: **mexer no
+raio não reduz o que se lê do PNCP**. Ele escolhe os estados a varrer, com
+folga de 300 km sobre o centro de cada um, e de Xanxerê qualquer valor acima de
+8 km já dá SC, PR e RS. Com folga zero nenhum centro caberia e o coletor cairia
+na varredura NACIONAL — nove vezes mais páginas.
+
+A folga é o que salva a divisa: **Sananduva fica no RS, a 133 km**, mas o centro
+do RS está a 308. Com folga de 100 km o Rio Grande do Sul sairia da varredura e
+aquele pregão de R$ 894 mil nunca teria aparecido.
+
+Quem controla o volume é a **janela de 30 dias** e as **duas modalidades**. Não
+mexi: é decisão de negócio.
+
+---
+
 ## 2026-08-27 — Claude no PC da Kemilly
 
 **Coluna "Avaliar" antes de "De olho"**

@@ -19,6 +19,62 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-08-27 — Claude no PC da Kemilly
+
+**Coluna "Avaliar" antes de "De olho"**
+
+As duas coisas eram uma só e não são: salvar pra decidir depois é diferente de
+já ter decidido que vale. Misturadas, a primeira coluna crescia sem parar com o
+que presta e o que não presta no mesmo monte, e o quadro parava de informar.
+
+Agora **quem entra no funil entra como "Avaliar"**. "De olho" passa a significar
+"já avaliei, vale participar, falta chegar a hora".
+
+Cuidado pra quem mexer: **dois pontos listam os status de "antes da sessão" um a
+um** — a contagem de encerradas e o filtro que esconde as vencidas. O status
+novo entrou nos dois; se ficasse de fora, licitação vencida em "Avaliar"
+ficaria no quadro pra sempre. `relatorios.ts` também tem o mapa de rótulos, e o
+TypeScript acusa se faltar.
+
+"Avaliar" **não** entra em DISPUTADAS, pelo mesmo motivo que "de_olho" nunca
+entrou: contar o que nunca virou proposta infla o denominador da taxa de vitória.
+
+**Imprimir a lista de lotes**
+
+Botão "Imprimir lista" ao lado do seletor de licitação, na tela de Preços dos
+fornecedores. No papel os campos de formulário viram texto — a tela é planilha
+editável, mas impressa vira folha de consulta, e caixinha de input vazia só
+rouba espaço do número que interessa.
+
+O cabeçalho da tabela se repete a cada página e a linha não parte no meio: meia
+linha numa folha e meia na outra é como se dá lance no lote errado.
+
+**Pasta DOCS-LICITACOES arrumada**
+
+As duas certidões que faltavam chegaram em 25/08, e as duas **NEGATIVAS**:
+federal e estadual SEF/SC, ambas válidas até **21/02/2027**. Foi o DARF do INSS
+que limpou a pendência federal.
+
+Apagadas as duas vencidas que elas substituem (federal de 17/06/2026 e estadual
+de 22/10/2024) — a pasta `_reserva`, que só existia pelo prazo de regularização
+de ME/EPP, deixou de fazer sentido e foi removida. Uma segunda via da federal,
+emitida dois minutos depois da primeira, e o "Relatório de Situação Fiscal" (que
+é tela de apoio, não certidão) foram pra `_descartados`.
+
+**A sequência está completa: 01 a 17, sem buraco.**
+
+**O que a outra ponta precisa saber**
+
+- **O CRF do FGTS vence em 04/09/2026** — é o mais curto de todos (30 dias) e o
+  que mais derruba empresa desprevenida.
+- A certidão municipal de Xanxerê **segue POSITIVA**, acompanhada dos dois
+  comprovantes de pagamento. Vale tentar reemitir.
+- Falta anexar o **PDF do DARF do INSS** (só há o comprovante em foto).
+- Os documentos ainda **não foram cadastrados na aba Documentos**: isso só dá
+  pra fazer de dentro do painel no ar, e daqui não há acesso ao servidor.
+
+---
+
 ## 2026-08-25 (tarde) — Claude no PC da Kemilly
 
 **A aba Estoque ficava vazia mesmo com fornecedor preenchido**

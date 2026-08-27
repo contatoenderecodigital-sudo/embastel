@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { untrackLicitacao, updateTracked } from "@/lib/licitacoesTrackingDb";
+import type { LicitacaoStatus } from "@/lib/licitacoesTrackingDb";
 
 export async function PATCH(
   request: NextRequest,
@@ -7,7 +8,7 @@ export async function PATCH(
 ) {
   const { numeroControlePNCP } = await params;
   const updates = (await request.json()) as {
-    status?: "de_olho" | "preparando" | "enviada" | "ganhou" | "perdeu";
+    status?: LicitacaoStatus;
     notes?: string;
     aiSummary?: string;
   };

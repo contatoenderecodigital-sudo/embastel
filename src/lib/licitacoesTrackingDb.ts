@@ -10,6 +10,12 @@ import { jsonStore } from "./jsonStore";
 // preço (habilitação) — dá pra vencer a disputa e ainda cair na habilitação
 // por causa de uma certidão vencida.
 export type LicitacaoStatus =
+  // Salvou pra decidir depois. Separada de "de_olho" porque as duas coisas
+  // são decisões diferentes: aqui ainda não se sabe se compensa participar;
+  // lá já se sabe que sim, e o que falta é a data chegar. Misturar as duas
+  // fazia a primeira coluna crescer sem parar, com o que vale e o que não
+  // vale no mesmo monte, e a leitura do quadro deixava de valer.
+  | "avaliar"
   | "de_olho"
   | "preparando"
   | "enviada"
@@ -62,7 +68,7 @@ export async function trackLicitacao(
     const now = Date.now();
     const item: TrackedLicitacao = {
       ...input,
-      status: "de_olho",
+      status: "avaliar",
       notes: "",
       aiSummary: null,
       createdAt: now,

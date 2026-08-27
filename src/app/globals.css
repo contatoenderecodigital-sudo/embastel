@@ -97,6 +97,46 @@ textarea::placeholder {
     padding: 0 !important;
     max-width: none !important;
   }
+
+  /* A lista de lotes de um edital, impressa pra levar pra sala de disputa.
+     O que aparece na tela é uma planilha editável; no papel os campos viram
+     texto, senão sai uma folha cheia de caixinhas de formulário vazias e o
+     número que interessa — o piso — fica espremido entre bordas. */
+  .folha-lotes {
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+  .folha-lotes table {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 9.5pt;
+  }
+  .folha-lotes th,
+  .folha-lotes td {
+    padding: 3pt 4pt !important;
+  }
+  .folha-lotes input,
+  .folha-lotes select {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    -webkit-appearance: none;
+    appearance: none;
+    color: inherit;
+  }
+  /* Linha não pode partir no meio entre uma página e outra: metade do lote
+     numa folha e metade na outra é como se dá lance no item errado. */
+  .folha-lotes tr {
+    break-inside: avoid;
+  }
+  /* O cabeçalho se repete em cada página — sem isso, da segunda folha em
+     diante ninguém sabe qual coluna é o teto e qual é o piso. */
+  .folha-lotes thead {
+    display: table-header-group;
+  }
 }
 
 /* ---------------------------------------------------------------------------

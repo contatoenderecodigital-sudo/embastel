@@ -15,6 +15,7 @@ export type Periodo = 30 | 90 | 180 | 365 | 0;
 export type ResumoFunil = { status: LicitacaoStatus; rotulo: string; quantidade: number };
 
 export const ROTULO_STATUS: Record<LicitacaoStatus, string> = {
+  avaliar: "Avaliar",
   de_olho: "De olho",
   preparando: "Preparando",
   enviada: "Proposta enviada",
@@ -26,8 +27,9 @@ export const ROTULO_STATUS: Record<LicitacaoStatus, string> = {
 };
 
 // Etapas em que a Embastel já gastou trabalho de verdade — montou e mandou
-// proposta. É a base honesta pra taxa de vitória: contar "de_olho" como
-// disputa infla o denominador com coisa que nunca virou proposta.
+// proposta. É a base honesta pra taxa de vitória: contar "avaliar" ou
+// "de_olho" como disputa infla o denominador com coisa que nunca virou
+// proposta.
 const DISPUTADAS: LicitacaoStatus[] = [
   "enviada",
   "em_disputa",

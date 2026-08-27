@@ -74,6 +74,10 @@ export default function CotacoesPage() {
   const [carregandoLotes, setCarregandoLotes] = useState(false);
   const [importando, setImportando] = useState(false);
 
+  const dadosDaLicitacao = licitacoes.find(
+    (l) => l.numeroControlePNCP === licEscolhida
+  );
+
   const [produto, setProduto] = useState("");
   const [marca, setMarca] = useState("");
   const [fornecedor, setFornecedor] = useState("");
@@ -258,7 +262,7 @@ export default function CotacoesPage() {
         ))}
       </datalist>
 
-      <header>
+      <header className="nao-imprimir">
         <h1 className="text-2xl font-bold text-neutral-900">Preços dos fornecedores</h1>
         <p className="mt-1 text-sm text-neutral-600">
           O que cada um cobra em cada produto, com o telefone do lado. Cotou com
@@ -273,7 +277,7 @@ export default function CotacoesPage() {
         </div>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="nao-imprimir grid gap-2 sm:grid-cols-3">
         {[
           { r: "Cotações", v: dados.resumo.total },
           { r: "Produtos", v: dados.resumo.produtos },
@@ -292,7 +296,7 @@ export default function CotacoesPage() {
       </div>
 
       {/* -------------------------------------------------------- lançar -- */}
-      <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
+      <div className="nao-imprimir rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
         <div className="mb-2.5 text-[12.5px] font-semibold text-neutral-800">
           Lançar preço
         </div>
@@ -369,8 +373,8 @@ export default function CotacoesPage() {
 
       {/* ---------------------------------------------- recorte por edital -- */}
       {licitacoes.length > 0 && (
-        <div className="rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
-          <label className="flex flex-col gap-1">
+        <div className="nao-imprimir flex flex-wrap items-end gap-3 rounded-2xl border border-neutral-200/70 bg-white p-4 shadow-sm">
+          <label className="flex min-w-[280px] flex-1 flex-col gap-1">
             <span className="text-[11.5px] font-medium text-neutral-600">
               Trabalhar em cima de uma licitação
             </span>
@@ -388,6 +392,32 @@ export default function CotacoesPage() {
               ))}
             </select>
           </label>
+          {licEscolhida && (
+            <button
+              onClick={() => window.print()}
+              title="Imprime só a lista de lotes, sem os menus"
+              className="rounded-xl border border-neutral-300 px-3.5 py-2 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+            >
+              Imprimir lista
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Cabeçalho que só existe no papel: quem imprime a lista precisa saber
+          de que edital ela é e de quando, senão vira folha solta na mesa. */}
+      {licEscolhida && dadosDaLicitacao && (
+        <div className="hidden print:block">
+          <h1 className="text-[17px] font-bold">
+            {dadosDaLicitacao.municipio}/{dadosDaLicitacao.uf} — lotes do edital
+          </h1>
+          <p className="mt-0.5 text-[11px] text-neutral-600">
+            {dadosDaLicitacao.objeto}
+          </p>
+          <p className="mt-0.5 text-[11px] text-neutral-500">
+            {licEscolhida} · impresso em{" "}
+            {new Date().toLocaleDateString("pt-BR")}
+          </p>
         </div>
       )}
 
@@ -414,7 +444,7 @@ export default function CotacoesPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
+          <div className="folha-lotes overflow-x-auto rounded-2xl border border-neutral-200/70 bg-white shadow-sm">
             <table className="w-full min-w-[900px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50 text-[11px] font-bold uppercase tracking-wider text-neutral-500">

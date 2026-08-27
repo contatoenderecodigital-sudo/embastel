@@ -23,6 +23,7 @@ const compacto = new Intl.NumberFormat("pt-BR", {
 // A ordem das colunas é a ordem em que as etapas acontecem de verdade num
 // pregão eletrônico — ver o comentário em licitacoesTrackingDb.ts.
 const STATUS_ORDER: LicitacaoStatus[] = [
+  "avaliar",
   "de_olho",
   "preparando",
   "enviada",
@@ -34,6 +35,7 @@ const STATUS_ORDER: LicitacaoStatus[] = [
 ];
 
 const STATUS_LABEL: Record<LicitacaoStatus, string> = {
+  avaliar: "Avaliar",
   de_olho: "De olho",
   preparando: "Preparando",
   enviada: "Enviada",
@@ -46,7 +48,8 @@ const STATUS_LABEL: Record<LicitacaoStatus, string> = {
 
 // O que fazer em cada etapa, pra quem abrir o quadro não precisar lembrar.
 const STATUS_AJUDA: Record<LicitacaoStatus, string> = {
-  de_olho: "Achou e está avaliando se compensa",
+  avaliar: "Salvou pra olhar com calma e decidir se compensa",
+  de_olho: "Já decidiu que vale — esperando a hora de preparar",
   preparando: "Montando preço e juntando documento",
   enviada: "Proposta no portal, esperando a sessão",
   em_disputa: "Sessão de lances acontecendo",
@@ -57,7 +60,8 @@ const STATUS_AJUDA: Record<LicitacaoStatus, string> = {
 };
 
 const STATUS_ACCENT: Record<LicitacaoStatus, string> = {
-  de_olho: "bg-neutral-400",
+  avaliar: "bg-neutral-300",
+  de_olho: "bg-sky-400",
   preparando: "bg-amber-400",
   enviada: "bg-blue-400",
   em_disputa: "bg-violet-500",
@@ -529,7 +533,10 @@ Por que não serve? (opcional, mas ajuda a lembrar depois)`,
   // é o normal, não um problema.
   const encerradasNoFunil = tracked.filter(
     (t) =>
-      (t.status === "de_olho" || t.status === "preparando" || t.status === "enviada") &&
+      (t.status === "avaliar" ||
+        t.status === "de_olho" ||
+        t.status === "preparando" ||
+        t.status === "enviada") &&
       (daysUntil(t.dataEncerramentoProposta) ?? 1) < 0
   ).length;
 
@@ -1039,6 +1046,7 @@ Por que não serve? (opcional, mas ajuda a lembrar depois)`,
                       // faria a licitação sumir do quadro justamente quando
                       // ela está andando.
                       const antesDaSessao =
+                        status === "avaliar" ||
                         status === "de_olho" ||
                         status === "preparando" ||
                         status === "enviada";

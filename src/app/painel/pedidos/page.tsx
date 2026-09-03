@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Cliente, FormaPagamento } from "@/lib/clientesDb";
 import type { Pedido } from "@/lib/pedidosDb";
-import { ItensEditor, itemFormVazio, totalItens, type ItemForm } from "@/components/PedidoItensEditor";
+import {
+  ItensEditor,
+  itemFormVazio,
+  totalItens,
+  type ItemForm,
+  type ProdutoPreco,
+} from "@/components/PedidoItensEditor";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -25,6 +31,9 @@ export default function PedidosPage() {
   const [clienteId, setClienteId] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>("dinheiro");
   const [itensForm, setItensForm] = useState<ItemForm[]>([itemFormVazio()]);
+  // Catálogo só pra mostrar custo e piso ao lado do preço. Falhar aqui não
+  // pode travar o pedido: sem catálogo a tela volta a ser o que era.
+  const [produtos, setProdutos] = useState<ProdutoPreco[]>([]);
   const [observacao, setObservacao] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -54,6 +63,13 @@ export default function PedidosPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
+
+  useEffect(() => {
+    fetch("/api/catalogo")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setProdutos(d.produtos ?? []))
+      .catch(() => {});
+  }, []);
 
   function handleClienteChange(id: string) {
     setClienteId(id);
@@ -221,7 +237,7 @@ export default function PedidosPage() {
           <label className="mb-1 block text-sm font-medium text-neutral-700">
             Itens do pedido
           </label>
-          <ItensEditor itens={itensForm} setItens={setItensForm} />
+          <ItensEditor itens={itensForm} setItens={setItensForm} produtos={produtos} />
         </div>
 
         <div className="flex items-center justify-between rounded-xl bg-brand-soft px-4 py-3">
@@ -364,7 +380,7 @@ export default function PedidosPage() {
 
             {editandoId === pedido.id ? (
               <div className="mt-2 space-y-2 rounded-lg bg-neutral-50 p-3">
-                <ItensEditor itens={editItens} setItens={setEditItens} />
+                <ItensEditor itens={editItens} setItens={setEditItens} produtos={produtos} />
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-neutral-600">
                     Total: {currency.format(totalItens(editItens))}

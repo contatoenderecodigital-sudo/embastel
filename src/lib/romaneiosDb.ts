@@ -5,6 +5,14 @@ export type FormaPagamentoRomaneio = "dinheiro" | "pix" | "cheque" | "boleto";
 
 export type RomaneioItem = {
   id: string;
+  /**
+   * Vazio quando o nome foi digitado à mão.
+   *
+   * Nem todo mundo que entra na carga está cadastrado: cliente novo, venda
+   * avulsa, entrega de favor. Exigir cadastro antes obrigava a parar o
+   * romaneio, abrir outra tela e voltar — e na correria da carga saindo, o
+   * item simplesmente não era lançado.
+   */
   clienteId: string;
   clienteNome: string;
   cidade: string;
@@ -115,7 +123,20 @@ export async function addItemRomaneio(
 export async function updateItemRomaneio(
   romaneioId: string,
   itemId: string,
-  patch: Partial<Pick<RomaneioItem, "valor" | "formaPagamento" | "observacao" | "entregue" | "pago">>
+  // Nome e cidade entram aqui porque o que foi digitado à mão se corrige
+  // digitando de novo, sem apagar a linha e refazer.
+  patch: Partial<
+    Pick<
+      RomaneioItem,
+      | "clienteNome"
+      | "cidade"
+      | "valor"
+      | "formaPagamento"
+      | "observacao"
+      | "entregue"
+      | "pago"
+    >
+  >
 ): Promise<Romaneio | null> {
   return store.update((data) => {
     const romaneio = data.romaneios.find((r) => r.id === romaneioId);

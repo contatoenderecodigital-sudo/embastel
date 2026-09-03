@@ -26,6 +26,26 @@ export default function RomaneioPage() {
   const [creating, setCreating] = useState(false);
 
   const [clienteId, setClienteId] = useState("");
+  const [clienteNome, setClienteNome] = useState("");
+  const [cidade, setCidade] = useState("");
+
+  /**
+   * O campo é de texto livre, mas reconhece quem já está cadastrado.
+   *
+   * Bateu com um cliente da lista, o item fica amarrado a ele e a cidade vem
+   * junto — que é o caminho bom. Não bateu, entra como nome digitado. Assim
+   * cliente novo não trava a carga, e quem está cadastrado continua sendo
+   * lançado com o vínculo certo, sem ninguém precisar escolher entre as duas
+   * coisas.
+   */
+  function escolherCliente(texto: string) {
+    setClienteNome(texto);
+    const achado = clientes.find(
+      (c) => `${c.nome} — ${c.cidade}` === texto || c.nome === texto
+    );
+    setClienteId(achado?.id ?? "");
+    if (achado) setCidade(achado.cidade);
+  }
   const [valor, setValor] = useState("");
   const [formaPagamento, setFormaPagamento] = useState<FormaPagamentoRomaneio>("dinheiro");
   const [itemObs, setItemObs] = useState("");
@@ -93,8 +113,8 @@ export default function RomaneioPage() {
   }
 
   async function handleAddItem() {
-    if (!romaneioAtual || !clienteId) {
-      setError("Escolhe o cliente.");
+    if (!romaneioAtual || !clienteNome.trim()) {
+      setError("Escolha o cliente ou digite o nome.");
       return;
     }
     setAddingItem(true);
@@ -103,11 +123,20 @@ export default function RomaneioPage() {
       const res = await fetch(`/api/romaneios/${romaneioAtual.id}/itens`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, valor: valor || 0, formaPagamento, observacao: itemObs }),
+        body: JSON.stringify({
+          clienteId,
+          clienteNome: clienteNome.trim(),
+          cidade: cidade.trim(),
+          valor: valor || 0,
+          formaPagamento,
+          observacao: itemObs,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Falha ao adicionar cliente");
       setClienteId("");
+      setClienteNome("");
+      setCidade("");
       setValor("");
       setItemObs("");
       await load();
@@ -138,6 +167,12 @@ export default function RomaneioPage() {
 
   return (
     <div className="space-y-6">
+      <datalist id="clientes-romaneio">
+        {clientes.map((c) => (
+          <option key={c.id} value={`${c.nome} — ${c.cidade}`} />
+        ))}
+      </datalist>
+
       <div>
         <h1 className="text-[25px] font-bold tracking-tight text-neutral-900">Romaneio</h1>
         <p className="mt-1.5 text-sm text-neutral-500">
@@ -206,18 +241,22 @@ export default function RomaneioPage() {
           <div className="mt-4 flex flex-wrap items-end gap-2">
             <div className="min-w-[180px] flex-1">
               <label className="mb-1 block text-xs font-medium text-neutral-700">Cliente</label>
-              <select
-                value={clienteId}
-                onChange={(e) => setClienteId(e.target.value)}
+              <input
+                value={clienteNome}
+                list="clientes-romaneio"
+                onChange={(e) => escolherCliente(e.target.value)}
+                placeholder="Digite ou escolha da lista"
                 className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
-              >
-                <option value="">Selecione...</option>
-                {clientes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome} — {c.cidade}
-                  </option>
-                ))}
-              </select>
+              />
+            </div>
+            <div className="min-w-[120px]">
+              <label className="mb-1 block text-xs font-medium text-neutral-700">Cidade</label>
+              <input
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                placeholder="Opcional"
+                className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand"
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-neutral-700">Valor</label>
@@ -256,7 +295,7 @@ export default function RomaneioPage() {
             </div>
             <button
               onClick={handleAddItem}
-              disabled={addingItem || !clienteId}
+              disabled={addingItem || !clienteNome.trim()}
               className="brand-gradient rounded-md px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand/20 disabled:opacity-50"
             >
               Adicionar
@@ -273,11 +312,29 @@ export default function RomaneioPage() {
                 className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3"
               >
                 <div className="min-w-[140px] flex-1">
-                  <p className="text-sm font-medium text-neutral-900">{item.clienteNome}</p>
-                  <p className="text-xs text-neutral-500">
-                    {item.cidade}
-                    {item.observacao && ` · ${item.observacao}`}
-                  </p>
+                  <input
+                    defaultValue={item.clienteNome}
+                    onBlur={(e) => {
+                      const nome = e.target.value.trim();
+                      if (nome && nome !== item.clienteNome) {
+                        handlePatchItem(item.id, { clienteNome: nome });
+                      }
+                    }}
+                    className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-sm font-medium text-neutral-900 outline-none hover:border-neutral-200 focus:border-brand focus:bg-white"
+                  />
+                  <div className="flex items-center gap-1 text-xs text-neutral-500">
+                    <input
+                      defaultValue={item.cidade}
+                      placeholder="cidade"
+                      onBlur={(e) => {
+                        if (e.target.value.trim() !== item.cidade) {
+                          handlePatchItem(item.id, { cidade: e.target.value.trim() });
+                        }
+                      }}
+                      className="w-[110px] rounded border border-transparent bg-transparent px-1.5 py-0.5 outline-none hover:border-neutral-200 focus:border-brand focus:bg-white"
+                    />
+                    {item.observacao && <span>· {item.observacao}</span>}
+                  </div>
                 </div>
                 <input
                   type="number"

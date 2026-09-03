@@ -59,9 +59,18 @@ const PASTA = path.join(process.cwd(), "data", "documentos");
 // Os mesmos formatos que os portais aceitam, mais nada. Bloquear aqui evita
 // que alguém suba um .exe ou um .html — o painel serve esses arquivos de
 // volta, e HTML servido do próprio domínio executa script.
+// .p12 e .pfx SAÍRAM da lista em 03/09/2026, e é de propósito.
+//
+// São certificados COM CHAVE PRIVADA — é com ela que se assina proposta, nota
+// e contrato em nome da empresa. Guardá-los aqui significaria que qualquer
+// pessoa com a senha do painel baixa a assinatura da empresa inteira, e a
+// senha é uma só, compartilhada. O painel avisa em vez de recusar calado,
+// porque quem tentou subir precisa entender o motivo, não achar que quebrou.
 const EXTENSOES_ACEITAS = new Set([
-  "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx", "zip", "rar", "p12", "pfx",
+  "pdf", "png", "jpg", "jpeg", "doc", "docx", "xls", "xlsx", "zip", "rar",
 ]);
+
+const EXTENSOES_DE_CHAVE_PRIVADA = new Set(["p12", "pfx", "pem", "key", "jks"]);
 
 export const TAMANHO_MAXIMO_BYTES = 30 * 1024 * 1024;
 
@@ -260,6 +269,14 @@ export async function anexarArquivo(
   arquivo: { nome: string; buffer: Buffer }
 ): Promise<Documento | null> {
   const extensao = (arquivo.nome.split(".").pop() ?? "").toLowerCase();
+  if (EXTENSOES_DE_CHAVE_PRIVADA.has(extensao)) {
+    throw new Error(
+      "Certificado com chave privada (.p12/.pfx) não pode ser guardado aqui — " +
+        "quem tem a senha do painel passaria a poder assinar pela empresa. " +
+        "Cadastre só a ficha, com a data de validade, para ser avisada antes de vencer."
+    );
+  }
+
   if (!EXTENSOES_ACEITAS.has(extensao)) {
     throw new Error(
       `Formato .${extensao || "?"} não aceito. Use PDF, imagem, Word, Excel ou ZIP.`

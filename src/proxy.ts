@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { COOKIE_SESSAO, loginObrigatorio, tokenValido } from "@/lib/sessao";
+import { COOKIE_SESSAO, loginObrigatorio, perfilDoToken } from "@/lib/sessao";
 
 // Porteiro do painel. Roda antes de qualquer página ou rota de API.
 // (No Next 16 este arquivo se chama proxy.ts — o antigo middleware.ts está
@@ -14,6 +14,30 @@ const LIVRES = [
   // ele tem a própria verificação por token (WHATSAPP_VERIFY_TOKEN).
   "/api/whatsapp/webhook",
 ];
+
+/**
+ * O que a senha da vendedora abre. Tudo que não estiver aqui, ela não vê.
+ *
+ * Lista do que PODE, e não do que não pode: tela nova nasce fechada pra ela e
+ * alguém decide abrir. Ao contrário, cada tela nova vazaria por esquecimento —
+ * e a que vazaria hoje é a das fichas, com CPF e dívida de cliente.
+ */
+const ROTAS_DA_VENDEDORA = [
+  "/painel/pedidos",
+  "/painel/clientes",
+  "/painel/comissoes",
+  "/api/pedidos",
+  "/api/clientes",
+  "/api/comissoes",
+  "/api/produtos-loja",
+];
+
+function podeVerComoVendedora(pathname: string): boolean {
+  if (pathname === "/painel" || pathname === "/painel/") return true;
+  return ROTAS_DA_VENDEDORA.some(
+    (r) => pathname === r || pathname.startsWith(`${r}/`)
+  );
+}
 
 /**
  * Impede o navegador de guardar a página do painel.
@@ -48,7 +72,21 @@ export async function proxy(request: NextRequest) {
   }
 
   const token = request.cookies.get(COOKIE_SESSAO)?.value;
-  if (await tokenValido(token)) {
+  const perfil = await perfilDoToken(token);
+
+  if (perfil === "vendedora" && !podeVerComoVendedora(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Esta parte do painel não faz parte do seu acesso." },
+        { status: 403 }
+      );
+    }
+    // Manda pros pedidos, não pro login: ela ESTÁ logada, e uma tela de login
+    // aqui faria parecer que a senha dela parou de funcionar.
+    return NextResponse.redirect(new URL("/painel/pedidos", request.url));
+  }
+
+  if (perfil) {
     return ehPainel ? semCache(NextResponse.next()) : NextResponse.next();
   }
 

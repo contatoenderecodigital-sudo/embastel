@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COOKIE_SESSAO, criarToken, VALIDADE_SEGUNDOS } from "@/lib/sessao";
+import { COOKIE_SESSAO, criarToken, perfilDaSenha, VALIDADE_SEGUNDOS } from "@/lib/sessao";
 
 export const dynamic = "force-dynamic";
 
@@ -48,19 +48,8 @@ function registrarErro(chave: string): void {
   registro.erros += 1;
 }
 
-/**
- * Comparação em tempo constante da senha.
- *
- * `a !== b` para em cima da primeira letra diferente, e o tempo dessa parada
- * conta quantas letras estavam certas. É o mesmo cuidado que a assinatura do
- * cookie já tinha em sessao.ts, e faltava justamente onde mora o segredo.
- */
-function senhasIguais(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
+// A comparação em tempo constante das senhas mora agora em sessao.perfilDaSenha,
+// que precisa conferir as duas (a da casa e a da vendedora) na mesma passada.
 
 export async function POST(request: NextRequest) {
   const { senha } = (await request.json()) as { senha?: string };
@@ -86,7 +75,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!senha || !senhasIguais(senha, esperada)) {
+  const perfil = senha ? perfilDaSenha(senha) : null;
+  if (!perfil) {
     registrarErro(chave);
     return NextResponse.json({ error: "Senha incorreta." }, { status: 401 });
   }
@@ -95,8 +85,9 @@ export async function POST(request: NextRequest) {
   // com o crédito consumido pelo resto da janela.
   tentativas.delete(chave);
 
-  const resposta = NextResponse.json({ ok: true });
-  resposta.cookies.set(COOKIE_SESSAO, await criarToken(), {
+  // A tela usa o perfil pra decidir pra onde levar depois do login.
+  const resposta = NextResponse.json({ ok: true, perfil });
+  resposta.cookies.set(COOKIE_SESSAO, await criarToken(perfil), {
     httpOnly: true,
     sameSite: "lax",
     // Em produção só trafega por HTTPS; local (http://localhost) precisa

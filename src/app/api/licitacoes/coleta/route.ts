@@ -22,6 +22,7 @@ export async function GET() {
       keywords: settings.licitacaoKeywords,
       exclusoes: settings.licitacaoExclusoes,
       intervaloHoras: settings.licitacaoIntervaloHoras,
+      pausada: settings.licitacaoColetaPausada,
     },
   });
 }
@@ -52,6 +53,7 @@ export async function PATCH(request: NextRequest) {
     keywords?: string[];
     exclusoes?: string[];
     intervaloHoras?: number;
+    pausada?: boolean;
   };
 
   const settings = await updateLicitacaoSettings({
@@ -61,6 +63,7 @@ export async function PATCH(request: NextRequest) {
     licitacaoKeywords: body.keywords,
     licitacaoExclusoes: body.exclusoes,
     licitacaoIntervaloHoras: body.intervaloHoras,
+    licitacaoColetaPausada: body.pausada,
   });
 
   return NextResponse.json({
@@ -71,6 +74,7 @@ export async function PATCH(request: NextRequest) {
       keywords: settings.licitacaoKeywords,
       exclusoes: settings.licitacaoExclusoes,
       intervaloHoras: settings.licitacaoIntervaloHoras,
+      pausada: settings.licitacaoColetaPausada,
     },
   });
 }

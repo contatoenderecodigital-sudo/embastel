@@ -581,6 +581,10 @@ export async function iniciarAgendadorDeColeta(): Promise<void> {
   const rodarSeNecessario = async () => {
     try {
       const config = await getSettings();
+      // Pausada, só roda quando alguém pede pela tela. A checagem fica aqui
+      // dentro, e não na hora de agendar, pra despausar valer na hora — sem
+      // depender de alguém reiniciar o servidor.
+      if (config.licitacaoColetaPausada) return;
       if (config.storeLat == null || config.storeLon == null) return;
       const indice = await lerIndice();
       const idade = indice.atualizadoEm ? Date.now() - indice.atualizadoEm : Infinity;

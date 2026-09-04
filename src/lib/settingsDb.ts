@@ -18,6 +18,17 @@ export type Settings = {
   licitacaoDias: number;
   // Intervalo entre coletas automáticas, em horas.
   licitacaoIntervaloHoras: number;
+  /**
+   * Com a coleta pausada, o PNCP só é varrido quando alguém clica em
+   * "Atualizar agora".
+   *
+   * Existe porque licitação vai por temporada: quando a casa decide parar de
+   * disputar por um tempo, o coletor continuava batendo no PNCP de 6 em 6
+   * horas pra encher um índice que ninguém ia olhar. Pausar é diferente de
+   * botar um intervalo enorme — o intervalo grande ainda roda, e ainda erra a
+   * hora de voltar.
+   */
+  licitacaoColetaPausada: boolean;
 };
 
 const defaults: Settings = {
@@ -44,6 +55,7 @@ const defaults: Settings = {
   licitacaoModalidades: DEFAULT_MODALIDADES,
   licitacaoDias: 30,
   licitacaoIntervaloHoras: 6,
+  licitacaoColetaPausada: false,
 };
 
 const store = jsonStore<Settings>("settings.json", defaults);
@@ -89,6 +101,7 @@ export async function updateLicitacaoSettings(
       | "licitacaoModalidades"
       | "licitacaoDias"
       | "licitacaoIntervaloHoras"
+      | "licitacaoColetaPausada"
     >
   >
 ): Promise<Settings> {

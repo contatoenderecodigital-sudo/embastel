@@ -126,6 +126,7 @@ export default function LicitacoesPage() {
   const [exclusoes, setExclusoes] = useState("");
   const [minDeadlineDays, setMinDeadlineDays] = useState(0);
   const [raioKm, setRaioKm] = useState(250);
+  const [coletaPausada, setColetaPausada] = useState(false);
   const [municipio, setMunicipio] = useState("");
   const [valorMin, setValorMin] = useState("");
   const [valorMax, setValorMax] = useState("");
@@ -289,6 +290,7 @@ export default function LicitacoesPage() {
       if (data.config && !configCarregada.current) {
         configCarregada.current = true;
         setRaioKm(data.config.raioKm);
+        setColetaPausada(Boolean(data.config.pausada));
         setModalidades(data.config.modalidades);
         if (data.config.keywords?.length) {
           setKeywords(data.config.keywords.join(", "));
@@ -405,6 +407,7 @@ export default function LicitacoesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         raioKm,
+        pausada: coletaPausada,
         modalidades,
         keywords: keywords.split(",").map((k) => k.trim()).filter(Boolean),
         exclusoes: exclusoes.split(",").map((e) => e.trim()).filter(Boolean),
@@ -636,6 +639,27 @@ Por que não serve? (opcional, mas ajuda a lembrar depois)`,
           </div>
 
           <div className="flex items-center gap-3 text-[12px]">
+            {coletaPausada && (
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+                Busca automática pausada
+              </span>
+            )}
+            <button
+              onClick={async () => {
+                const novo = !coletaPausada;
+                setColetaPausada(novo);
+                await fetch("/api/licitacoes/coleta", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ pausada: novo }),
+                });
+                await loadColeta();
+              }}
+              title="Pausada, o painel só busca licitação quando você clicar em Atualizar agora"
+              className="font-medium text-neutral-500 hover:text-neutral-800"
+            >
+              {coletaPausada ? "Retomar busca automática" : "Pausar busca automática"}
+            </button>
             <button
               onClick={() => setMostrarConfig((v) => !v)}
               className="font-medium text-neutral-500 hover:text-neutral-800"

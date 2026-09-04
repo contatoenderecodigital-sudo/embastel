@@ -8,7 +8,22 @@ export type Cliente = {
   id: string;
   nome: string;
   razaoSocial: string | null;
+  /**
+   * Física ou jurídica — muda o documento que se pede.
+   *
+   * De pessoa jurídica basta o CNPJ: nome, endereço e situação a gente
+   * consulta online quando precisar. De pessoa física não dá pra consultar
+   * nada, então o cadastro tem que guardar CPF, endereço, telefone e e-mail —
+   * é o que permite cobrar quem some.
+   *
+   * Ausente nos cadastros antigos, que nasceram sem o campo: quem tem CNPJ é
+   * tratado como jurídica, o resto como física.
+   */
+  tipoPessoa?: "fisica" | "juridica";
   cnpj: string | null;
+  /** Só de pessoa física. */
+  cpf?: string | null;
+  email?: string | null;
   endereco: string | null;
   cidade: string;
   telefone: string | null;
@@ -32,7 +47,10 @@ export async function addCliente(input: {
   nome: string;
   cidade: string;
   razaoSocial?: string | null;
+  tipoPessoa?: "fisica" | "juridica";
   cnpj?: string | null;
+  cpf?: string | null;
+  email?: string | null;
   endereco?: string | null;
   telefone?: string | null;
   formaPagamentoPadrao?: FormaPagamento | null;
@@ -43,7 +61,11 @@ export async function addCliente(input: {
       id: randomUUID(),
       nome: input.nome,
       razaoSocial: input.razaoSocial ?? null,
+      // Sem escolha explícita, quem informou CNPJ é jurídica.
+      tipoPessoa: input.tipoPessoa ?? (input.cnpj ? "juridica" : "fisica"),
       cnpj: input.cnpj ?? null,
+      cpf: input.cpf ?? null,
+      email: input.email ?? null,
       endereco: input.endereco ?? null,
       cidade: input.cidade,
       telefone: input.telefone ?? null,
@@ -63,6 +85,9 @@ export async function updateCliente(
       Cliente,
       | "nome"
       | "razaoSocial"
+      | "tipoPessoa"
+      | "cpf"
+      | "email"
       | "cnpj"
       | "endereco"
       | "cidade"

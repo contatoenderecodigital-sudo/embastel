@@ -19,6 +19,56 @@ computador: o que mudou na prática, e o que ela precisa fazer.
 
 ---
 
+## 2026-09-04 — Claude no PC da Suzana
+
+**A loja precifica por MARKUP, não por margem — e isso muda o que um desconto custa**
+
+Descoberto lendo os 20.721 produtos do sistema atual: a mediana de venda/custo é
+**1,501**, e a regra é `custo × 1,50 arredondado PRA CIMA no próximo R$ 0,25`.
+Confirmada nos números reais — custo 7,32 vira 11,00, custo 52,86 vira 79,50,
+custo 31,99 vira 48,00.
+
+**Cuidado com o nome.** O que a casa chama de "margem de 50%" é markup sobre o
+custo. Com 10% de imposto, o que sobra de fato é **23,3%**. O "mínimo de 35%"
+(× 1,35) deixa **15,9%**.
+
+Isso importa na hora do desconto, e é contraintuitivo:
+
+| Desconto | Preço | Margem | Lucro que some |
+|---|---|---|---|
+| 5% | 14,25 | 19,8% | **19%** |
+| 10% | 13,50 | 15,9% | **39%** |
+| 20% | 12,00 | 6,7% | **77%** |
+
+Dar 10% de desconto não tira 10% do lucro: tira 39%.
+
+**Catálogo da loja, separado do de licitação**
+
+`produtosLojaDb.ts` — 20.726 produtos. **Não** entrou no catálogo de licitação,
+e é decisão, não descuido: são custos diferentes para o mesmo produto (no pregão
+o preço depende da quantidade do edital), e 20 mil itens da loja afogariam os
+lotes. Misturar cotação de editais diferentes já custou caro uma vez.
+
+A busca é no servidor, com limite de 25: mandar 20 mil linhas pro celular da
+vendedora gastaria franquia e travaria no sinal fraco. Responde em 50–100 ms.
+
+**O sistema da loja não tem preço mínimo — o campo existe e está vazio**
+
+Conferido: `preco_minimo` e `custo_medio` estão zerados em **todos** os 20.726
+produtos. A Ketlyn tinha razão em dizer que não conseguia ver. É esse buraco que
+o painel preenche.
+
+**O que a outra ponta precisa saber**
+
+- **Os custos importados são de 18/05/2026.** Servem pra provar a regra e montar
+  o importador; não servem pra precificar hoje. Falta definir como entra o custo
+  atualizado — a aposta é exportação periódica do sistema da loja.
+- **O painel não funciona em celular.** O menu lateral é fixo em 256px, sem
+  versão para tela pequena. A tela de pedido da vendedora depende disso.
+- Alíquota da Embastel: ~10% (contra 7% da Kesu). São CNPJs diferentes.
+
+---
+
 ## 2026-08-27 (tarde) — Claude no PC da Kemilly
 
 **Oportunidades agora mostra só o que ainda não foi olhado**
